@@ -7,7 +7,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
         body { background-color: #0d1117; color: #c9d1d9; direction: rtl; padding: 20px; }
-        .container { max-width: 450px; margin: 0 auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .container { max-width: 450px; margin: 30px auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h2 { text-align: center; color: #58a6ff; margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-size: 14px; }
@@ -18,25 +18,44 @@
         .card { background: #21262d; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .logout-btn { background: #da3633; margin-top: 20px; }
         .logout-btn:hover { background: #f85149; }
-        .msg { text-align: center; margin-top: 10px; font-size: 13px; color: #f85149; }
+        .msg { text-align: center; margin-top: 10px; font-size: 13px; }
+        .toggle-link { text-align: center; margin-top: 15px; font-size: 14px; color: #58a6ff; cursor: pointer; }
+        .toggle-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <!-- قسم تسجيل الدخول -->
-    <div id="auth-section">
+    <div id="login-section">
         <h2>تسجيل الدخول إلى A-boost</h2>
         <div class="form-group">
             <label>البريد الإلكتروني</label>
-            <input type="email" id="email" placeholder="name@example.com">
+            <input type="email" id="login-email" placeholder="name@example.com">
         </div>
         <div class="form-group">
             <label>كلمة المرور</label>
-            <input type="password" id="password" placeholder="********">
+            <input type="password" id="login-password" placeholder="********">
         </div>
         <button onclick="login()">دخول</button>
-        <p id="auth-msg" class="msg"></p>
+        <p id="login-msg" class="msg" style="color: #f85149;"></p>
+        <p class="toggle-link" onclick="toggleAuth(true)">ليس لديك حساب؟ أنشئ حساباً جديداً</p>
+    </div>
+
+    <!-- قسم إنشاء حساب جديد -->
+    <div id="register-section" class="hidden">
+        <h2>إنشاء حساب جديد</h2>
+        <div class="form-group">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="reg-email" placeholder="name@example.com">
+        </div>
+        <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" id="reg-password" placeholder="********">
+        </div>
+        <button onclick="register()" style="background: #1f6feb;">تسجيل الحساب</button>
+        <p id="reg-msg" class="msg" style="color: #f85149;"></p>
+        <p class="toggle-link" onclick="toggleAuth(false)">لديك حساب بالفعل؟ سجل دخولك</p>
     </div>
 
     <!-- لوحة التحكم الرئيسية -->
@@ -56,10 +75,46 @@
 </div>
 
 <script>
+    function toggleAuth(showRegister) {
+        if (showRegister) {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('register-section').classList.remove('hidden');
+        } else {
+            document.getElementById('register-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+    }
+
+    async function register() {
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+        const msg = document.getElementById('reg-msg');
+
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                msg.style.color = '#3fb950';
+                msg.innerText = 'تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.';
+                setTimeout(() => toggleAuth(false), 2000);
+            } else {
+                msg.style.color = '#f85149';
+                msg.innerText = data.error || 'حدث خطأ';
+            }
+        } catch (err) {
+            msg.style.color = '#f85149';
+            msg.innerText = 'فشل الاتصال بالخادم';
+        }
+    }
+
     async function login() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const msg = document.getElementById('auth-msg');
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const msg = document.getElementById('login-msg');
 
         try {
             const res = await fetch('/api/auth/login', {
@@ -89,7 +144,8 @@
             });
             const data = await res.json();
             if (res.ok) {
-                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('register-section').classList.add('hidden');
                 document.getElementById('dashboard-section').classList.remove('hidden');
                 document.getElementById('user-tier').innerText = data.user.tierCode;
                 document.getElementById('user-wallet').innerText = data.user.assetWallet.toFixed(2);
@@ -158,7 +214,7 @@
     function logout() {
         localStorage.removeItem('token');
         document.getElementById('dashboard-section').classList.add('hidden');
-        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('login-section').classList.remove('hidden');
     }
 
     if (localStorage.getItem('token')) {
