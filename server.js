@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// تفعيل الواجهة الأمامية
+// تفعيل الواجهة الأماميةت
 app.use(express.static(path.join(__dirname)));
 
 const JWT_SECRET = 'boost_secret_key_2026';
