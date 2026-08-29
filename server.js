@@ -9,15 +9,17 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// تفعيل الواجهة الأماميةت
 app.use(express.static(path.join(__dirname)));
 
 const JWT_SECRET = 'boost_secret_key_2026';
 
-// 1. اتصال قاعدة البيانات (MongoDB Atlas)
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://your_username:your_password@cluster0.xxxxx.mongodb.net/boostDB?retryWrites=true&w=majority';
+// 1. اتصال قاعدة البيانات مع خيارات منع الـ Timeout
+const MONGO_URI = process.env.MONGO_URI || '';
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+})
   .then(() => console.log('تم الاتصال بقاعدة البيانات بنجاح'))
   .catch(err => console.error('خطأ في الاتصال بقاعدة البيانات:', err));
 
@@ -78,7 +80,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// تسجيل الدخول (مع إظهار رسالة الخطأ التقنية إن وجدت)
+// تسجيل الدخول
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
