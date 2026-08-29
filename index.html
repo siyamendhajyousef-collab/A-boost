@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-boost - منصة المهام والأرباح</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
+        body { background-color: #0d1117; color: #c9d1d9; direction: rtl; padding: 20px; }
+        .container { max-width: 450px; margin: 0 auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #58a6ff; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; }
+        input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #fff; }
+        button { width: 100%; padding: 11px; background: #238636; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #2ea043; }
+        .hidden { display: none; }
+        .card { background: #21262d; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .logout-btn { background: #da3633; margin-top: 20px; }
+        .logout-btn:hover { background: #f85149; }
+        .msg { text-align: center; margin-top: 10px; font-size: 13px; color: #f85149; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- قسم تسجيل الدخول -->
+    <div id="auth-section">
+        <h2>تسجيل الدخول إلى A-boost</h2>
+        <div class="form-group">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="email" placeholder="name@example.com">
+        </div>
+        <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" id="password" placeholder="********">
+        </div>
+        <button onclick="login()">دخول</button>
+        <p id="auth-msg" class="msg"></p>
+    </div>
+
+    <!-- لوحة التحكم الرئيسية -->
+    <div id="dashboard-section" class="hidden">
+        <h2>لوحة التحكم</h2>
+        <div class="card">
+            <p><strong>المستوى:</strong> <span id="user-tier">-</span></p>
+            <p><strong>رصيد المحفظة:</strong> $<span id="user-wallet">0.00</span></p>
+            <p><strong>المهام المنجزة اليوم:</strong> <span id="user-tasks">0</span></p>
+        </div>
+        
+        <button onclick="completeTask()">إنجاز مهمة جديدة</button>
+        <button onclick="withdraw()" style="background: #1f6feb; margin-top: 10px;">طلب سحب أسبوعي</button>
+        <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
+        <p id="action-msg" class="msg" style="color: #3fb950;"></p>
+    </div>
+</div>
+
+<script>
+    async function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const msg = document.getElementById('auth-msg');
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('token', data.token);
+                loadProfile();
+            } else {
+                msg.innerText = data.error || 'حدث خطأ';
+            }
+        } catch (err) {
+            msg.innerText = 'فشل الاتصال بالخادم';
+        }
+    }
+
+    async function loadProfile() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            const res = await fetch('/api/user/profile', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                document.getElementById('user-tier').innerText = data.user.tierCode;
+                document.getElementById('user-wallet').innerText = data.user.assetWallet.toFixed(2);
+                document.getElementById('user-tasks').innerText = data.user.todayCompletedTasks;
+            } else {
+                logout();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function completeTask() {
+        const token = localStorage.getItem('token');
+        const msg = document.getElementById('action-msg');
+        try {
+            const res = await fetch('/api/tasks/complete', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('user-wallet').innerText = data.assetWallet.toFixed(2);
+                document.getElementById('user-tasks').innerText = data.completed;
+                msg.style.color = '#3fb950';
+                msg.innerText = 'تم إنجاز المهمة وإضافة الأرباح بنجاح!';
+            } else {
+                msg.style.color = '#f85149';
+                msg.innerText = data.error;
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function withdraw() {
+        const token = localStorage.getItem('token');
+        const amount = prompt('أدخل مبلغ السحب (بالدولار):');
+        const walletAddress = prompt('أدخل عنوان محفظتك (USDT):');
+        if (!amount || !walletAddress) return;
+
+        const msg = document.getElementById('action-msg');
+        try {
+            const res = await fetch('/api/wallet/withdraw', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token 
+                },
+                body: JSON.stringify({ amount: Number(amount), walletAddress })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                msg.style.color = '#3fb950';
+                msg.innerText = data.message;
+                loadProfile();
+            } else {
+                msg.style.color = '#f85149';
+                msg.innerText = data.error;
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        document.getElementById('dashboard-section').classList.add('hidden');
+        document.getElementById('auth-section').classList.remove('hidden');
+    }
+
+    if (localStorage.getItem('token')) {
+        loadProfile();
+    }
+</script>
+
+</body>
+</html>
