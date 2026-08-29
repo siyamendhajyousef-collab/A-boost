@@ -3,16 +3,15 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const path = require('path'); // أضفنا هذه المكتبة لقراءة مسارات الملفات
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// << هذا هو السطر المسؤول عن إظهار الواجهة الأمامية (index.html) >>
+// تفعيل الواجهة الأمامية
 app.use(express.static(path.join(__dirname)));
 
-// مفتاح التشفير السري
 const JWT_SECRET = 'boost_secret_key_2026';
 
 // 1. اتصال قاعدة البيانات (MongoDB Atlas)
@@ -28,7 +27,7 @@ mongoose.connect(MONGO_URI)
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  tierCode: { type: String, default: 'A1' }, // A1 إلى A5
+  tierCode: { type: String, default: 'A1' },
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
   referralCode: { type: String, unique: true },
@@ -75,22 +74,26 @@ app.post('/api/auth/register', async (req, res) => {
     await newUser.save();
     res.status(201).json({ success: true, message: 'تم إنشاء الحساب بنجاح' });
   } catch (err) {
-    res.status(400).json({ error: 'البريد الإلكتروني مستخدم مسبقاً' });
+    res.status(400).json({ error: 'خطأ التسجيل: ' + err.message });
   }
 });
 
-// تسجيل الدخول
+// تسجيل الدخول (مع إظهار رسالة الخطأ التقنية إن وجدت)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(400).json({ error: 'البريد أو كلمة المرور غير صحيحة' });
+    if (!user) {
+      return res.status(400).json({ error: 'البريد الإلكتروني غير مسجل' });
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'كلمة المرور غير صحيحة' });
     }
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.status(200).json({ success: true, token, user });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ في الخادم' });
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
@@ -100,7 +103,7 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     res.status(200).json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ في الخادم' });
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
@@ -124,7 +127,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
 
     res.status(200).json({ success: true, assetWallet: user.assetWallet, completed: user.todayCompletedTasks });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ في إنجاز المهمة' });
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
@@ -160,7 +163,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح' });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ في معالجة السحب' });
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
