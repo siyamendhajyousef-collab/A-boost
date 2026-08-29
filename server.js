@@ -3,16 +3,19 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path'); // أضفنا هذه المكتبة لقراءة مسارات الملفات
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// مفتاح التشفير السري (يمكن وضعه في متغيرات البيئة)
+// << هذا هو السطر المسؤول عن إظهار الواجهة الأمامية (index.html) >>
+app.use(express.static(path.join(__dirname)));
+
+// مفتاح التشفير السري
 const JWT_SECRET = 'boost_secret_key_2026';
 
 // 1. اتصال قاعدة البيانات (MongoDB Atlas)
-// استبدل الرابط أدناه برابط MongoDB Atlas الخاص بك أو اتركه للتجربة المحلية
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://your_username:your_password@cluster0.xxxxx.mongodb.net/boostDB?retryWrites=true&w=majority';
 
 mongoose.connect(MONGO_URI)
@@ -125,7 +128,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// طلب سحب أسبوعي (الحد الأدنى 20$ والحد الأقصى حسب المستوى)
+// طلب سحب أسبوعي
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
