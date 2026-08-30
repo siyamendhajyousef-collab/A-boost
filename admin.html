@@ -260,20 +260,36 @@
             });
             document.getElementById(`admin-${tab}`).classList.remove('hide');
             document.getElementById(`btn-tab-${tab}`).className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
+
+            // تجديد جلب البيانات حسب التبويب المختار
+            if(tab === 'overview') fetchAdminOverview();
+            if(tab === 'users') fetchUsersList();
+            if(tab === 'withdrawals') fetchTransactionsList();
         }
 
         async function fetchAdminOverview() {
             const token = localStorage.getItem('token');
+            if (!token) {
+                adminLogout();
+                return;
+            }
+
             try {
                 const res = await fetch('/api/admin/overview', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
+                if (res.status === 401 || res.status === 403) {
+                    adminLogout();
+                    return;
+                }
+
                 const data = await res.json();
                 if(res.ok && data.success) {
                     const stats = data.stats || {};
                     document.getElementById('statTotalUsers').innerText = stats.totalUsers || 0;
-                    document.getElementById('statTotalDeposits').innerText = (stats.totalDeposits || 0).toFixed(2) + ' $';
-                    document.getElementById('statTotalWithdrawals').innerText = (stats.totalWithdrawals || 0).toFixed(2) + ' $';
+                    document.getElementById('statTotalDeposits').innerText = (Number(stats.totalDeposits) || 0).toFixed(2) + ' $';
+                    document.getElementById('statTotalWithdrawals').innerText = (Number(stats.totalWithdrawals) || 0).toFixed(2) + ' $';
                     document.getElementById('statPendingRequests').innerText = stats.pendingWithdrawals || 0;
                 }
             } catch(e) {
@@ -283,10 +299,15 @@
 
         async function fetchUsersList() {
             const token = localStorage.getItem('token');
+            if (!token) return adminLogout();
+
             try {
                 const res = await fetch('/api/admin/users', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
+                if (res.status === 401 || res.status === 403) return adminLogout();
+
                 const users = await res.json();
                 if(res.ok && Array.isArray(users)) {
                     allUsersData = users;
@@ -322,10 +343,15 @@
 
         async function fetchTransactionsList() {
             const token = localStorage.getItem('token');
+            if (!token) return adminLogout();
+
             try {
                 const res = await fetch('/api/admin/withdrawals', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
+                if (res.status === 401 || res.status === 403) return adminLogout();
+
                 const data = await res.json();
                 if (res.ok && data.success) {
                     const tbody = document.getElementById('tblTransactionsBody');
