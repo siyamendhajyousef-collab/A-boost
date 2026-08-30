@@ -1,6 +1,5 @@
-تم تحديث إعدادات CORS في الكود لتكون أكثر مرونة، حيث أصبحت تقبل جميع الطلبات القادمة من استضافة Railway تلقائياً (تستهدف نطاقات railway.app)، بالإضافة إلى بيئة التطوير المحلية والنطاقات المعرفة في ALLOWED_ORIGINS.
-إليك الكود الكامل والمعدل لملف server.js جاهزاً للنسخ والاستبدال:
 // تمت مراجعة وتحسين الملف بالكامل لتطبيق أفضل الممارسات الأمنية ولتغطية كافة الثغرات المحتملة.
+// تم تحديث إعدادات CORS لتكون أكثر مرونة (Railway, Localhost, ALLOWED_ORIGINS).
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -31,7 +30,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: (origin, callback) => {
-    // السماح إذا كان الطلب بدون Origin (مثل السيرفر نفسه)، أو من بيئة التطوير المحلية، أو استضافة Railway، أو موجود في القائمة
     if (
       !origin || 
       process.env.NODE_ENV !== 'production' || 
@@ -1454,4 +1452,3 @@ process.on('SIGTERM', () => {
     });
   });
 });
-
