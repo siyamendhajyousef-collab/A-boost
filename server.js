@@ -30,7 +30,23 @@ mongoose.connect(MONGO_URI, {
   serverSelectionTimeoutMS: 30000,
   socketTimeoutMS: 45000,
 })
-  .then(() => console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway'))
+  .then(async () => {
+    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
+    
+    // 👑 تحويل حسابك الشخصي تلقائياً إلى الأدمن الرئيسي
+    try {
+      const adminUser = await User.findOneAndUpdate(
+        { email: 'asspetmax@gmail.com' },
+        { role: 'admin' },
+        { new: true }
+      );
+      if (adminUser) {
+        console.log('👑 تم التأكد من صلاحيات الأدمن للحساب: asspetmax@gmail.com');
+      }
+    } catch (err) {
+      console.error('⚠️ خطأ في تحديث صلاحية الأدمن:', err.message);
+    }
+  })
   .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات MongoDB:', err));
 
 
@@ -39,6 +55,7 @@ mongoose.connect(MONGO_URI, {
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  role: { type: String, default: 'user' }, // 👈 حقل الصلاحية (user / admin)
   tierCode: { type: String, default: 'A1' },
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
@@ -81,6 +98,29 @@ const verifyToken = (req, res, next) => {
     next();
   } catch (err) {
     res.status(401).json({ error: 'التوكن غير صالح أو انتهت صلاحيته' });
+  }
+};
+
+// 🛡️ موسط حماية الأدمن (Admin Protection)
+const verifyAdmin = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'غير مصرح: لا يوجد توكن' });
+
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'صيغة التوكن غير صحيحة' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'وصول مرفوض: هذه المنطقة مخصصة للمدير فقط' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'جلسة غيّر صالحة أو انتهت الصلاحية' });
   }
 };
 
@@ -223,7 +263,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ error: 'كلمة المرور غير صحيحة' });
     }
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.status(200).json({ success: true, token, user });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
@@ -331,7 +371,7 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// إكمال المهام وتحديث الأرباح (باستخدام التحديث المباشر)
+// إكمال المهام وتحديث الأرباح
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -370,7 +410,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// الإيداع (تحديث مباشر)
+// الإيداع
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -407,7 +447,7 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// 🎡 عجلة الحظ (تحديث مباشر في قاعدة البيانات)
+// 🎡 عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
     const rewardAmount = 5.00;
@@ -435,7 +475,7 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   }
 });
 
-// 🎁 الصندوق الغامض (تحديث مباشر في قاعدة البيانات)
+// 🎁 الصندوق الغامض
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
     const rewardAmount = 10.00;
@@ -463,7 +503,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 السحب (تحديث مباشر مع التحقق من الرصيد)
+// 💸 السحب
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -519,7 +559,105 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   }
 });
 
-// 🚀 تشغيل الخادم
+
+// ==================== 5. مسارات الإدارة السرية (Admin APIs) ====================
+
+// 🔐 الرابط السري لفتح ملف صفحة الأدمن
+app.get('/my-secret-admin-panel-99', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// 📊 جلب الإحصائيات العامة للمنصة
+app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const pendingWithdrawals = await Transaction.countDocuments({ type: 'withdraw', status: 'pending' });
+    
+    const users = await User.find();
+    let totalBalance = 0;
+    users.forEach(u => {
+      totalBalance += (u.wallet ? u.wallet.balance : 0);
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalBalance,
+        pendingWithdrawals
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 👥 جلب قائمة المستخدمين
+app.get('/api/admin/users', verifyAdmin, async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    res.json({ success: true, users });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// ✏️ تعديل بيانات مستخدم (الرصيد أو المستوى)
+app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
+  try {
+    const { userId, balance, tierCode } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    if (balance !== undefined) user.wallet.balance = Number(balance);
+    if (tierCode) user.tierCode = tierCode;
+
+    await user.save();
+    res.json({ success: true, message: 'تم تعديل بيانات المستخدم بنجاح', user });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 💸 جلب طلبات السحب المعلقة
+app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
+  try {
+    const withdrawals = await Transaction.find({ type: 'withdraw' })
+      .populate('userId', 'email tierCode')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, withdrawals });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// ⚙️ الموافقة أو رفض طلب سحب
+app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
+  try {
+    const { transactionId, action } = req.body; // action: 'approve' or 'reject'
+    const tx = await Transaction.findById(transactionId);
+    if (!tx) return res.status(404).json({ error: 'المعاملة غير موجودة' });
+
+    if (action === 'approve') {
+      tx.status = 'approved';
+    } else if (action === 'reject') {
+      tx.status = 'rejected';
+      // إرجاع المبلغ المحجوز لرساميل المستخدم عند الرفض
+      await User.findByIdAndUpdate(tx.userId, {
+        $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
+      });
+    }
+
+    await tx.save();
+    res.json({ success: true, message: `تمت عملية (${action === 'approve' ? 'الموافقة' : 'الرفض'}) بنجاح` });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+
+// ==================== 6. تشغيل الخادم ====================
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
