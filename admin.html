@@ -632,23 +632,40 @@
         }
 
         async function updateVipPlan(code) {
-            const name = document.getElementById(`name-${code}`)?.value;
-            const price = parseFloat(document.getElementById(`price-${code}`)?.value);
-            const dailyProfit = parseFloat(document.getElementById(`dailyProfit-${code}`)?.value);
-            const tasksCount = parseInt(document.getElementById(`tasksCount-${code}`)?.value);
-            const commissionRate = parseFloat(document.getElementById(`commissionRate-${code}`)?.value || 0);
-            const durationDays = parseInt(document.getElementById(`durationDays-${code}`)?.value || 365);
+            // دالة تنظيف لقراءة المدخلات الرقمية وتجاوز قيم NaN بأمان
+            const parseNum = (id, defaultVal = 0, isInt = false) => {
+                const el = document.getElementById(id);
+                if (!el) return defaultVal;
+                // تنظيف القيمة من أي رموز أو مسافات غريبة
+                const cleaned = String(el.value).trim().replace(/[^\d.-]/g, '');
+                if (cleaned === '') return defaultVal;
+                const num = isInt ? parseInt(cleaned, 10) : parseFloat(cleaned);
+                return isNaN(num) ? defaultVal : num;
+            };
+
+            const nameInput = document.getElementById(`name-${code}`);
+            const name = nameInput ? nameInput.value.trim() : '';
+
+            const price = parseNum(`price-${code}`, 0);
+            const dailyProfit = parseNum(`dailyProfit-${code}`, 0);
+            const tasksCount = parseNum(`tasksCount-${code}`, 1, true);
+            const commissionRate = parseNum(`commissionRate-${code}`, 0);
+            const durationDays = parseNum(`durationDays-${code}`, 365, true);
             
             const token = localStorage.getItem('token');
 
-            if (!name || isNaN(price) || isNaN(dailyProfit) || isNaN(tasksCount)) {
-                return showToast('يرجى إدخال جميع البيانات الأساسية للمستوى بشكل صحيح');
+            // فحص المرونة: التأكد من الاسم ومن أن عدد المهام لا يقل عن 1
+            if (!name || tasksCount <= 0) {
+                return showToast('يرجى التأكد من كتابة اسم المستوى وعدد مهام صحيح');
             }
 
             try {
                 const res = await fetch('/api/admin/vip-levels', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${token}` 
+                    },
                     body: JSON.stringify({
                         code: code,
                         name: name,
@@ -663,6 +680,7 @@
                 const data = await res.json();
                 if (res.ok && (data.success || data._id)) {
                     showToast(`تم تحديث مستوى ${code} بنجاح`);
+                    fetchVipPlans(); // إعادة تحميل البيانات لتحديث الشاشة
                 } else {
                     showToast(data.error || data.message || 'حدث خطأ أثناء حفظ التحديث');
                 }
