@@ -541,7 +541,7 @@
         </div>
     </div>
 
-    <!-- نافذة السحب -->
+    <!-- نافذة السحب (محدثة مع نظام 2FA المطلوب للسيرفر) -->
     <div id="withdrawModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
             <div class="flex justify-between items-center">
@@ -558,6 +558,15 @@
                 <div id="walletStatusContainerWithdraw"></div>
             </div>
 
+            <!-- حقل رمز التحقق الثنائي 2FA المطلوب من السيرفر -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-xs text-amber-400 font-bold">رمز التحقق (2FA)</label>
+                    <button type="button" onclick="sendWithdraw2FACode()" class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg border border-amber-500/30 font-bold hover:bg-amber-500/30 transition-all">إرسال الرمز للبريد</button>
+                </div>
+                <input type="text" id="withdraw2faCode" maxlength="6" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-sm font-bold tracking-widest text-amber-400 focus:border-amber-500" placeholder="123456">
+            </div>
+
             <div class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[10px] text-amber-300">
                 <i class="fa-solid fa-shield-halved ml-1 text-amber-400"></i>
                 تتوقف السحوبات لمدة 24 ساعة مؤقتاً عند تعديل أو تغيير عنوان المحفظة للمصادقة.
@@ -567,7 +576,7 @@
         </div>
     </div>
 
-    <!-- 2. نافذة سجل المعاملات المالية المحدث والمربوط ديناميكياً -->
+    <!-- نافذة سجل المعاملات المالية -->
     <div id="historyModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30 shadow-2xl relative max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center pb-2 border-b border-slate-800 shrink-0">
@@ -606,7 +615,6 @@
 
         const tierLimits = { 'A1': 33, 'A2': 35, 'A3': 40, 'A4': 45, 'A5': 50 };
 
-        // 1. التقاط كود الإحالة التلقائي من رابط المتصفح وتحويل المستخدم لتبويب التسجيل
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const refCode = urlParams.get('ref');
@@ -617,7 +625,6 @@
                     regInput.value = refCode.toUpperCase();
                     localStorage.setItem('ag_ref_code', refCode.toUpperCase());
                 }
-                // تفعيل واجهة التسجيل تلقائياً لتسهيل الانضمام للفريق
                 switchAuthTab('register');
             } else if (localStorage.getItem('ag_ref_code')) {
                 const regInput = document.getElementById('regReferralCode');
@@ -625,7 +632,36 @@
                     regInput.value = localStorage.getItem('ag_ref_code');
                 }
             }
+
+            // تفعيل نظام الإشعارات الفورية (Web Push Notifications) في المتصفح إذا كان مدعوماً
+            initPushNotifications();
         });
+
+        async function initPushNotifications() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    // طلب تفعيل الاشتراك الخلفي إذا سمح المستخدم
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qAYIHBQJN2XH7k8KJY'
+                        });
+                        await fetch('/api/push/subscribe', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify(subscription)
+                        });
+                    }
+                } catch (e) {
+                    // تجاهل بصمت في حال لم يتم توفير خدمة الـ SW على السيرفر
+                }
+            }
+        }
 
         function playBeep(type = 'default') {
             if(!soundEnabled) return;
@@ -840,7 +876,6 @@
             document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
         }
 
-        // 3. نظام تثبيت وعنونة المحفظة الأمني وقفل الـ 24 ساعة
         function lockWalletUI(address) {
             if (!address) return;
             
@@ -1171,15 +1206,41 @@
         function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hide'); }
         function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hide'); }
 
+        // إرسال رمز التحقق الثنائي 2FA الخاص بعمليات السحب
+        async function sendWithdraw2FACode() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/user/2fa/send-code', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('✅ تم إرسال رمز التحقق الثنائي (2FA) إلى بريدك الإلكتروني', 'win');
+                } else {
+                    showToast('❌ ' + (data.error || 'فشل إرسال الرمز'));
+                }
+            } catch (err) {
+                showToast('❌ خطأ في الاتصال بالخادم');
+            }
+        }
+
         async function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
             const walletAddress = document.getElementById('withdrawWallet').value;
+            const twoFactorCode = document.getElementById('withdraw2faCode').value.trim();
             const token = localStorage.getItem('token');
+
+            if (!twoFactorCode) {
+                showToast('يرجى إدخال رمز التحقق الثنائي (2FA)');
+                return;
+            }
+
             try {
                 const res = await fetch('/api/wallet/withdraw', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-                    body: JSON.stringify({amount, walletAddress})
+                    body: JSON.stringify({ amount, walletAddress, twoFactorCode })
                 });
                 const data = await res.json();
                 if(res.ok && data.wallet) {
@@ -1187,14 +1248,13 @@
                     closeWithdrawModal();
                     updateWalletData(data.wallet);
                 } else {
-                    showToast(data.error || 'رصيد المحفظة لا يكفي');
+                    showToast(data.error || 'رصيد المحفظة لا يكفي أو رمز 2FA غير صحيح');
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال');
             }
         }
 
-        // 2. جلب سجل المعاملات المالية المحدث وديناميكياً من الخادم
         async function openHistoryModal() {
             document.getElementById('historyModal').classList.remove('hide');
             const listEl = document.getElementById('historyList');
