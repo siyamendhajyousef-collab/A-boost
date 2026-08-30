@@ -87,7 +87,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية (إرجاع JSON مباشر ليتوافق مع الواجهة الأمامية)
+// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -118,7 +118,6 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
       return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً، يرجى إضافة مفتاح GROQ_API_KEY في متغيرات البيئة." });
     }
 
-    // إنشاء عميل Groq SDK
     const groq = new Groq({ apiKey: apiKey.trim() });
 
     const systemPrompt = `
@@ -137,7 +136,6 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // طلب الاستجابة مباشرة بنمط JSON عبر Groq SDK
     const completion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemPrompt },
@@ -185,7 +183,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   }
 });
 
-// تسجيل مستخدم جديد مع تفادي تكرار referralCode
+// تسجيل مستخدم جديد
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -350,9 +348,11 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
 
     if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    user.assetWallet += commission;
-    user.wallet.balance += commission;
+    user.assetWallet = Number((user.assetWallet + commission).toFixed(4));
+    user.wallet.balance = Number((user.wallet.balance + commission).toFixed(4));
     user.todayCompletedTasks += 1;
+    
+    user.markModified('wallet');
     await user.save();
 
     res.status(200).json({ success: true, assetWallet: user.assetWallet, wallet: user.wallet, completed: user.todayCompletedTasks });
@@ -376,8 +376,10 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
       user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
     }
 
-    user.wallet.balance += Number(amount);
-    user.wallet.totalDeposits += Number(amount);
+    user.wallet.balance = Number((user.wallet.balance + Number(amount)).toFixed(4));
+    user.wallet.totalDeposits = Number((user.wallet.totalDeposits + Number(amount)).toFixed(4));
+    
+    user.markModified('wallet');
     await user.save();
 
     const depositTransaction = new Transaction({
@@ -395,7 +397,7 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// عجلة الحظ
+// 🎡 عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -404,7 +406,9 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
     const rewardAmount = 5.00;
     if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    user.wallet.balance += rewardAmount;
+    user.wallet.balance = Number((user.wallet.balance + rewardAmount).toFixed(4));
+    
+    user.markModified('wallet');
     await user.save();
 
     const rewardTransaction = new Transaction({
@@ -422,7 +426,7 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   }
 });
 
-// الصندوق الغامض
+// 🎁 الصندوق الغامض
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -431,7 +435,9 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
     const rewardAmount = 10.00;
     if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    user.wallet.balance += rewardAmount;
+    user.wallet.balance = Number((user.wallet.balance + rewardAmount).toFixed(4));
+    
+    user.markModified('wallet');
     await user.save();
 
     const rewardTransaction = new Transaction({
@@ -449,41 +455,53 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// السحب
+// 💸 السحب
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   try {
     const { amount, walletAddress } = req.body;
-    if (!amount || amount < 20) return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
+    const withdrawNum = Number(amount);
+
+    if (!withdrawNum || withdrawNum < 20) {
+      return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
+    }
+
+    if (!walletAddress || walletAddress.trim() === '') {
+      return res.status(400).json({ error: 'يرجى إدخال عنوان المحفظة' });
+    }
 
     const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
     const maxLimit = maxWithdrawLimits[user.tierCode] || 15;
 
-    if (amount > maxLimit) {
+    if (withdrawNum > maxLimit) {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
     
     if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    if (user.wallet.balance < amount) {
+    if (user.wallet.balance < withdrawNum) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
-    user.wallet.balance -= Number(amount);
-    user.wallet.totalWithdrawn += Number(amount);
+    user.wallet.balance = Number((user.wallet.balance - withdrawNum).toFixed(4));
+    user.wallet.totalWithdrawn = Number((user.wallet.totalWithdrawn + withdrawNum).toFixed(4));
+    
+    user.markModified('wallet');
     await user.save();
 
     const withdrawal = new Transaction({
       userId: user._id,
       type: 'withdraw',
-      amount: Number(amount),
+      amount: withdrawNum,
       walletAddress,
       status: 'pending'
     });
     await withdrawal.save();
 
-    res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح' });
+    res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح', wallet: user.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
