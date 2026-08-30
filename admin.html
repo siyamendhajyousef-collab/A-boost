@@ -584,7 +584,7 @@
             alert("طلب عرض شجرة الإحالات للمستخدم: " + userId);
         }
 
-        // --- إدارة مستويات VIP المربوطة بالسيرفر (مُعدّلة بشكل كامل) ---
+        // --- إدارة مستويات VIP المربوطة بالسيرفر بشكل مكتمل ونظامي ---
         async function fetchVipPlans() {
             const container = document.getElementById('plansContainer');
             try {
@@ -597,19 +597,27 @@
                             <h3 class="font-bold text-amber-400 text-sm">مستوى ${plan.code}</h3>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">اسم المستوى</label>
-                                <input type="text" id="name-${plan.code}" value="${plan.name || 'مستوى ' + plan.code}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                                <input type="text" id="name-${plan.code}" value="${plan.name || 'المستوى ' + plan.code}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">سعر الاشتراك ($)</label>
-                                <input type="number" id="price-${plan.code}" value="${plan.price}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                                <input type="number" id="price-${plan.code}" value="${plan.price || 0}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">الربح اليومي ($)</label>
-                                <input type="number" step="0.01" id="dailyProfit-${plan.code}" value="${plan.dailyProfit}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                                <input type="number" step="0.01" id="dailyProfit-${plan.code}" value="${plan.dailyProfit || 0}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">عدد المهام اليومية</label>
                                 <input type="number" id="tasksCount-${plan.code}" value="${plan.tasksCount || 1}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">نسبة العمولة (%)</label>
+                                <input type="number" step="0.01" id="commissionRate-${plan.code}" value="${plan.commissionRate !== undefined ? plan.commissionRate : 0}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">مدة الخطة (بالأيام)</label>
+                                <input type="number" id="durationDays-${plan.code}" value="${plan.durationDays || 365}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
                             </div>
                             <button onclick="updateVipPlan('${plan.code}')" class="w-full py-2 bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-slate-950 text-xs font-bold rounded-xl transition-all">تحديث الخطة</button>
                         </div>
@@ -624,14 +632,17 @@
         }
 
         async function updateVipPlan(code) {
-            const name = document.getElementById(`name-${code}`).value;
-            const price = parseFloat(document.getElementById(`price-${code}`).value);
-            const dailyProfit = parseFloat(document.getElementById(`dailyProfit-${code}`).value);
-            const tasksCount = parseInt(document.getElementById(`tasksCount-${code}`).value);
+            const name = document.getElementById(`name-${code}`)?.value;
+            const price = parseFloat(document.getElementById(`price-${code}`)?.value);
+            const dailyProfit = parseFloat(document.getElementById(`dailyProfit-${code}`)?.value);
+            const tasksCount = parseInt(document.getElementById(`tasksCount-${code}`)?.value);
+            const commissionRate = parseFloat(document.getElementById(`commissionRate-${code}`)?.value || 0);
+            const durationDays = parseInt(document.getElementById(`durationDays-${code}`)?.value || 365);
+            
             const token = localStorage.getItem('token');
 
             if (!name || isNaN(price) || isNaN(dailyProfit) || isNaN(tasksCount)) {
-                return showToast('يرجى إدخال جميع البيانات الأساسية بشكل صحيح');
+                return showToast('يرجى إدخال جميع البيانات الأساسية للمستوى بشكل صحيح');
             }
 
             try {
@@ -643,15 +654,17 @@
                         name: name,
                         price: price,
                         dailyProfit: dailyProfit,
-                        tasksCount: tasksCount
+                        tasksCount: tasksCount,
+                        commissionRate: commissionRate,
+                        durationDays: durationDays
                     })
                 });
 
                 const data = await res.json();
-                if (res.ok && data.success) {
+                if (res.ok && (data.success || data._id)) {
                     showToast(`تم تحديث مستوى ${code} بنجاح`);
                 } else {
-                    showToast(data.error || 'حدث خطأ أثناء حفظ التحديث');
+                    showToast(data.error || data.message || 'حدث خطأ أثناء حفظ التحديث');
                 }
             } catch(e) {
                 showToast('خطأ في الاتصال بالسيرفر');
