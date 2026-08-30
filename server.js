@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const { Resend } = require('resend');
 const Groq = require('groq-sdk');
+const webpush = require('web-push');
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
 
 // 📧 إعداد عميل Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// 🔔 إعداد مفاتيح Web Push (VAPID Keys)
+const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'your_private_vapid_key_here';
+
+try {
+  webpush.setVapidDetails(
+    'mailto:support@boost-platform.com',
+    publicVapidKey,
+    privateVapidKey
+  );
+} catch (e) {
+  console.log('⚠️ ملاحظة حول إعدادات Web Push VAPID:', e.message);
+}
 
 // 🕹️ متغيرات إعدادات الألعاب (يمكن تعديلها حياً من الأدمن)
 let gameSettings = {
@@ -53,20 +68,38 @@ const userSchema = new mongoose.Schema({
     totalWithdrawn: { type: Number, default: 0 }
   },
   resetOTP: { type: String, default: null },
-  resetOTPExpire: { type: Date, default: null }
+  resetOTPExpire: { type: Date, default: null },
+  // طبقة أمان التحقق الثنائي (2FA)
+  twoFactorCode: { type: String, default: null },
+  twoFactorExpire: { type: Date, default: null },
+  pushSubscription: { type: Object, default: null }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 
 const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['deposit', 'withdraw', 'reward'], required: true },
+  type: { type: String, enum: ['deposit', 'withdraw', 'reward', 'staking_reward'], required: true },
   amount: { type: Number, required: true },
   walletAddress: { type: String, required: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
 }, { timestamps: true });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
+
+// 🔒 نظام التخزين المؤقت (Staking Pool)
+const stakingSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  amount: { type: Number, required: true },
+  durationDays: { type: Number, enum: [7, 15, 30], required: true },
+  profitRate: { type: Number, required: true }, // النسبة المئوية للأرباح
+  expectedProfit: { type: Number, required: true },
+  startDate: { type: Date, default: Date.now },
+  endDate: { type: Date, required: true },
+  status: { type: String, enum: ['active', 'completed', 'claimed'], default: 'active' }
+}, { timestamps: true });
+
+const Staking = mongoose.model('Staking', stakingSchema);
 
 mongoose.connect(MONGO_URI)
   .then(async () => {
@@ -295,6 +328,180 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
       totalReferrals: referrals.length,
       referrals
     });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🔒 مسارات أمان التحقق الثنائي (2FA)
+app.post('/api/user/2fa/send-code', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    user.twoFactorCode = code;
+    user.twoFactorExpire = Date.now() + 5 * 60 * 1000; // صالح لمدة 5 دقائق
+    await user.save();
+
+    await resend.emails.send({
+      from: 'BOOST Platform <onboarding@resend.dev>',
+      to: user.email,
+      subject: 'رمز التحقق الثنائي (2FA) - BOOST',
+      html: `
+        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #0f172a; color: #ffffff; border-radius: 10px;">
+          <h2 style="color: #38bdf8; margin-bottom: 20px;">منصة BOOST - تأكيد العملية</h2>
+          <p style="font-size: 16px;">رمز التحقق الخاص لتأكيد عملية السحب هو:</p>
+          <div style="background-color: #1e293b; padding: 15px 25px; border-radius: 8px; display: inline-block; margin: 15px 0;">
+            <h1 style="color: #fbbf24; font-size: 36px; letter-spacing: 6px; margin: 0;">${code}</h1>
+          </div>
+          <p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">هذا الرمز صالح لمدة 5 دقائق فقط.</p>
+        </div>
+      `
+    });
+
+    res.status(200).json({ success: true, message: 'تم إرسال رمز التحقق الثنائي إلى بريدك الإلكتروني' });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ في إرسال الرمز: ' + err.message });
+  }
+});
+
+// 🔔 مسار حفظ اشتراك الإشعارات الفورية (Web Push Subscriptions)
+app.post('/api/push/subscribe', verifyToken, async (req, res) => {
+  try {
+    const subscription = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: 'بيانات الاشتراك غير صالحة' });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, { pushSubscription: subscription });
+    res.status(201).json({ success: true, message: 'تم حفظ اشتراك الإشعارات بنجاح' });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 📈 مسارات نظام التخزين المؤقت (Staking Pool)
+app.post('/api/staking/create', verifyToken, async (req, res) => {
+  try {
+    const { amount, durationDays } = req.body;
+    const stakeAmount = Number(amount);
+    const duration = Number(durationDays);
+
+    if (!stakeAmount || stakeAmount <= 0) {
+      return res.status(400).json({ error: 'مبلغ التخزين غير صالح' });
+    }
+
+    if (![7, 15, 30].includes(duration)) {
+      return res.status(400).json({ error: 'مدة التخزين المتاحة هي 7، 15، أو 30 يوماً فقط' });
+    }
+
+    // تحديد العائد حسب المدة
+    let profitRate = 0.05; // 5% لمدة 7 أيام
+    if (duration === 15) profitRate = 0.12; // 12%
+    if (duration === 30) profitRate = 0.30; // 30%
+
+    const expectedProfit = parseFloat((stakeAmount * profitRate).toFixed(2));
+
+    // خصم المبلغ من رصيد المستخدم
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, 'wallet.balance': { $gte: stakeAmount } },
+      { $inc: { 'wallet.balance': -stakeAmount } },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ لإنشاء حزمة التخزين' });
+    }
+
+    const endDate = new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
+
+    const newStaking = new Staking({
+      userId: user._id,
+      amount: stakeAmount,
+      durationDays: duration,
+      profitRate,
+      expectedProfit,
+      endDate,
+      status: 'active'
+    });
+
+    await newStaking.save();
+
+    res.status(200).json({ success: true, message: 'تم تفعيل حزمة التخزين بنجاح', staking: newStaking });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+app.get('/api/staking/my', verifyToken, async (req, res) => {
+  try {
+    const stakings = await Staking.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, stakings });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+app.post('/api/staking/claim', verifyToken, async (req, res) => {
+  try {
+    const { stakingId } = req.body;
+    const staking = await Staking.findOne({ _id: stakingId, userId: req.user.id });
+
+    if (!staking) return res.status(404).json({ error: 'حزمة التخزين غير موجودة' });
+    if (staking.status !== 'active') return res.status(400).json({ error: 'هذه الحزمة منتهية أو تم استلام أرباحها مسبقاً' });
+
+    if (new Date() < new Date(staking.endDate)) {
+      return res.status(400).json({ error: 'لم تنتهِ مدة التخزين المحددة بعد' });
+    }
+
+    staking.status = 'claimed';
+    await staking.save();
+
+    const totalReturn = staking.amount + staking.expectedProfit;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { 'wallet.balance': totalReturn } },
+      { new: true }
+    );
+
+    const tx = new Transaction({
+      userId: req.user.id,
+      type: 'staking_reward',
+      amount: totalReturn,
+      walletAddress: 'Staking Pool Reward',
+      status: 'approved'
+    });
+    await tx.save();
+
+    res.status(200).json({ success: true, message: 'تم استلام رأس المال والأرباح بنجاح', wallet: updatedUser.wallet });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🏆 لوحة المتصدرين الحية (Live Leaderboard)
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const topUsers = await User.find({ isBanned: false })
+      .sort({ 'wallet.balance': -1 })
+      .limit(10)
+      .select('email wallet.balance tierCode');
+
+    const leaderboard = topUsers.map((u, index) => {
+      const parts = u.email.split('@');
+      const name = parts[0];
+      const maskedEmail = name.length > 3 ? name.substring(0, 3) + '***@' + parts[1] : '***@' + parts[1];
+      return {
+        rank: index + 1,
+        email: maskedEmail,
+        balance: u.wallet ? u.wallet.balance : 0,
+        tierCode: u.tierCode
+      };
+    });
+
+    res.status(200).json({ success: true, leaderboard });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
@@ -618,12 +825,12 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 طلب السحب
+// 💸 طلب السحب (محمي بنظام التحقق الثنائي 2FA)
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   try {
-    const { amount, walletAddress } = req.body;
+    const { amount, walletAddress, twoFactorCode } = req.body;
     const withdrawNum = Number(amount);
 
     if (!withdrawNum || withdrawNum < 20) {
@@ -637,6 +844,11 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
+    // التحقق من صحة كود الـ 2FA
+    if (!twoFactorCode || user.twoFactorCode !== twoFactorCode || !user.twoFactorExpire || user.twoFactorExpire < Date.now()) {
+      return res.status(400).json({ error: 'رمز التحقق الثنائي (2FA) غير صحيح أو انتهت صلاحيته' });
+    }
+
     const maxLimit = maxWithdrawLimits[user.tierCode] || 15;
 
     if (withdrawNum > maxLimit) {
@@ -649,7 +861,8 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
         $inc: {
           'wallet.balance': -withdrawNum,
           'wallet.totalWithdrawn': withdrawNum
-        }
+        },
+        $set: { twoFactorCode: null, twoFactorExpire: null } // مسح الكود بعد الاستخدام الناجح
       },
       { new: true }
     );
@@ -817,7 +1030,7 @@ app.post('/api/admin/settings/games', verifyAdmin, async (req, res) => {
   }
 });
 
-// 📢 مسار البث والإشعارات
+// 📢 مسار البث والإشعارات الفورية
 app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
   try {
     const { title, body } = req.body;
@@ -825,7 +1038,27 @@ app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال العنوان والنص' });
     }
     
-    res.json({ success: true, message: 'تم إرسال البث بنجاح' });
+    // جلب جميع المستخدمين الذين لديهم اشتراك إشعارات مفعل
+    const usersWithPush = await User.find({ pushSubscription: { $ne: null } });
+    
+    const payload = JSON.stringify({ title, body });
+    
+    let sentCount = 0;
+    for (const user of usersWithPush) {
+      try {
+        await webpush.sendNotification(user.pushSubscription, payload);
+        sentCount++;
+      } catch (pushErr) {
+        console.error(`فشل إرسال إشعار للمستخدم ${user.email}:`, pushErr.message);
+        // إذا كان الاشتراك منتهي الصلاحية أو غير صالح، يمكن حذفه
+        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+          user.pushSubscription = null;
+          await user.save();
+        }
+      }
+    }
+
+    res.json({ success: true, message: `تم إرسال البث والإشعارات الفورية بنجاح إلى (${sentCount}) مستخدماً` });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
