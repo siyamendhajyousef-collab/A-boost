@@ -4,7 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const nodemailer = require('nodemailer'); // 📧 إضافة مكتبة إرسال الإيميل
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(express.json());
@@ -12,26 +12,33 @@ app.use(cors());
 
 app.use(express.static(path.join(__dirname)));
 
+// 🔐 إعدادات المفتاح السري ومتغيرات البيئة على Railway
 const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
 
-// 📧 إعدادات موصل البريد الإلكتروني (Nodemailer Transporter)
+// 📧 إعداد موصل البريد الإلكتروني (Resend SMTP Transporter)
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // أو أي خدمة SMTP أخرى تستخدمها
+  host: 'smtp.resend.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com', // بريدك الإلكتروني
-    pass: process.env.EMAIL_PASS || 'your-app-password'      // كلمة مرور التطبيق (App Password)
+    user: 'resend', // تترك الكلمة كما هي
+    pass: process.env.RESEND_API_KEY // يتم قرائته من متغيرات البيئة في Railway
   }
 });
 
-// 1. الاتصال بقاعدة البيانات
-const MONGO_URI = process.env.MONGO_URI || '';
+// 1. الاتصال بقاعدة بيانات MongoDB (Railway Environment Variable)
+const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
+
+if (!MONGO_URI) {
+  console.error('⚠️ تحذير: لم يتم العثور على MONGO_URI في متغيرات البيئة!');
+}
 
 mongoose.connect(MONGO_URI, {
   serverSelectionTimeoutMS: 30000,
   socketTimeoutMS: 45000,
 })
-  .then(() => console.log('تم الاتصال بقاعدة البيانات بنجاح'))
-  .catch(err => console.error('خطأ في الاتصال بقاعدة البيانات:', err));
+  .then(() => console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway'))
+  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات MongoDB:', err));
 
 
 // ==================== 2. نماذج قاعدة البيانات (Models) ====================
@@ -49,7 +56,7 @@ const userSchema = new mongoose.Schema({
     totalDeposits: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 }
   },
-  // 🔑 حقول جديدة مخصصة لإعادة تعيين كلمة المرور
+  // 🔑 حقول استعادة كلمة المرور عبر الـ OTP
   resetOTP: { type: String, default: null },
   resetOTPExpire: { type: Date, default: null }
 }, { timestamps: true });
@@ -123,7 +130,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 🔑 1. مسار طلب رمز استعادة كلمة المرور (Send OTP)
+// 🔑 1. طلب رمز استعادة كلمة المرور عبر Resend OTP
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -134,27 +141,26 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(404).json({ error: 'البريد الإلكتروني غير مسجل لدينا' });
     }
 
-    // إنشاء رمز مكون من 6 أرقام عشوائية
+    // توليد رمز OTP مكون من 6 أرقام
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // تحديد وقت انتهاء الرمز بعد 10 دقائق
+    // صلاحية الرمز 10 دقائق
     user.resetOTP = otp;
     user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    // إرسال الإيميل
     const mailOptions = {
-      from: '"مركز الدعم" <no-reply@boost.com>',
+      from: 'BOOST Platform <onboarding@resend.dev>',
       to: user.email,
-      subject: 'رمز استعادة كلمة المرور الخاصة بك',
+      subject: 'رمز استعادة كلمة المرور - BOOST',
       html: `
-        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;">
-          <h2>طلب استعادة كلمة المرور</h2>
-          <p>أهلاً بك، لقد طلبت إعادة تعيين كلمة المرور الخاصة بحسابك.</p>
-          <p>رمز التحقق (OTP) الخاص بك هو:</p>
-          <h1 style="color: #4CAF50; letter-spacing: 5px;">${otp}</h1>
-          <p>هذا الرمز صالِح لمدة 10 دقائق فقط.</p>
-          <p>إذا لم تقم بطلب هذا الإجراء، يمكنك إهمال هذه الرسالة بكل أمان.</p>
+        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #0f172a; color: #ffffff; border-radius: 10px;">
+          <h2 style="color: #38bdf8; margin-bottom: 20px;">منصة BOOST</h2>
+          <p style="font-size: 16px;">أهلاً بك، رمز التحقق الخاص بك لإعادة تعيين كلمة المرور هو:</p>
+          <div style="background-color: #1e293b; padding: 15px 25px; border-radius: 8px; display: inline-block; margin: 15px 0;">
+            <h1 style="color: #fbbf24; font-size: 36px; letter-spacing: 6px; margin: 0;">${otp}</h1>
+          </div>
+          <p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">هذا الرمز صالِح لمدة 10 دقائق فقط.</p>
         </div>
       `
     };
@@ -167,14 +173,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
-// 🔑 2. مسار التحقق من صحة الرمز (Verify OTP)
+// 🔑 2. التحقق من صحة الرمز (Verify OTP)
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
     const user = await User.findOne({
       email,
       resetOTP: otp,
-      resetOTPExpire: { $gt: Date.now() } // التأكد من عدم انتهاء الوقت
+      resetOTPExpire: { $gt: Date.now() }
     });
 
     if (!user) {
@@ -187,7 +193,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
-// 🔑 3. مسار تعيين كلمة المرور الجديدة (Reset Password)
+// 🔑 3. إعادة تعيين كلمة المرور الجديدة (Reset Password)
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -202,9 +208,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'جلسة التغيير غير صالحة أو انتهت الصلاحية' });
     }
 
-    // تشفير كلمة المرور الجديدة
     user.password = await bcrypt.hash(newPassword, 10);
-    // تفريغ حقول الـ OTP لضمان عدم استخدامه مرة أخرى
     user.resetOTP = null;
     user.resetOTPExpire = null;
     await user.save();
@@ -289,7 +293,7 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const rewardAmount = 5.00; // قيمة الجائزة
+    const rewardAmount = 5.00;
 
     if (!user.wallet) {
       user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
@@ -319,7 +323,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const rewardAmount = 10.00; // قيمة الجائزة
+    const rewardAmount = 10.00;
 
     if (!user.wallet) {
       user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
@@ -387,9 +391,8 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   }
 });
 
-
-// تشغيل الخادم
+// 🚀 تشغيل الخادم والربط الذاتي مع المنفذ المخصص من Railway
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`الخادم يعمل بانتظام على المنفذ ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
 });
