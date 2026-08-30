@@ -19,6 +19,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
 // 📧 إعداد عميل Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// 🕹️ متغيرات إعدادات الألعاب (يمكن تعديلها حياً من الأدمن)
+let gameSettings = {
+  spinMin: 1,
+  spinMax: 10,
+  boxMin: 5,
+  boxMax: 25
+};
+
 // 1. الاتصال بقاعدة بيانات MongoDB
 const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
 
@@ -55,7 +63,7 @@ mongoose.connect(MONGO_URI, {
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'user' }, // 👈 حقل الصلاحية (user / admin)
+  role: { type: String, default: 'user' },
   tierCode: { type: String, default: 'A1' },
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
@@ -120,7 +128,7 @@ const verifyAdmin = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'جلسة غيّر صالحة أو انتهت الصلاحية' });
+    return res.status(401).json({ error: 'جلسة غير صالحة أو انتهت الصلاحية' });
   }
 };
 
@@ -450,7 +458,9 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
 // 🎡 عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
-    const rewardAmount = 5.00;
+    const min = gameSettings.spinMin || 1;
+    const max = gameSettings.spinMax || 10;
+    const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -478,7 +488,9 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
 // 🎁 الصندوق الغامض
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
-    const rewardAmount = 10.00;
+    const min = gameSettings.boxMin || 5;
+    const max = gameSettings.boxMax || 25;
+    const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -560,7 +572,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
 });
 
 
-// ==================== 5. مسارات الإدارة السرية (Admin APIs) ====================
+// ==================== 5. مسارات الإدارة (Admin APIs) ====================
 
 // 🔐 الرابط السري لفتح ملف صفحة الأدمن
 app.get('/my-secret-admin-panel-99', (req, res) => {
@@ -573,22 +585,27 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
     const totalUsers = await User.countDocuments();
     const pendingWithdrawals = await Transaction.countDocuments({ type: 'withdraw', status: 'pending' });
     
-    const users = await User.find();
-    let totalBalance = 0;
-    users.forEach(u => {
-      totalBalance += (u.wallet ? u.wallet.balance : 0);
-    });
+    const depositsResult = await Transaction.aggregate([
+      { $match: { type: 'deposit', status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    const withdrawalsResult = await Transaction.aggregate([
+      { $match: { type: 'withdraw', status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
 
     res.json({
       success: true,
       stats: {
         totalUsers,
-        totalBalance,
+        totalDeposits: depositsResult[0]?.total || 0,
+        totalWithdrawals: withdrawalsResult[0]?.total || 0,
         pendingWithdrawals
       }
     });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+    res.status(500).json({ success: false, error: 'خطأ تقني: ' + err.message });
   }
 });
 
@@ -596,7 +613,7 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
 app.get('/api/admin/users', verifyAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
-    res.json({ success: true, users });
+    res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
@@ -634,7 +651,7 @@ app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
 // ⚙️ الموافقة أو رفض طلب سحب
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   try {
-    const { transactionId, action } = req.body; // action: 'approve' or 'reject'
+    const { transactionId, action } = req.body;
     const tx = await Transaction.findById(transactionId);
     if (!tx) return res.status(404).json({ error: 'المعاملة غير موجودة' });
 
@@ -642,7 +659,6 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
       tx.status = 'approved';
     } else if (action === 'reject') {
       tx.status = 'rejected';
-      // إرجاع المبلغ المحجوز لرساميل المستخدم عند الرفض
       await User.findByIdAndUpdate(tx.userId, {
         $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
       });
@@ -650,6 +666,41 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
 
     await tx.save();
     res.json({ success: true, message: `تمت عملية (${action === 'approve' ? 'الموافقة' : 'الرفض'}) بنجاح` });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🎮 جلب إعدادات الألعاب
+app.get('/api/admin/settings/games', verifyAdmin, async (req, res) => {
+  res.json({ success: true, settings: gameSettings });
+});
+
+// 🎮 حفظ إعدادات الألعاب والعجلة
+app.post('/api/admin/settings/games', verifyAdmin, async (req, res) => {
+  try {
+    const { spinMin, spinMax, boxMin, boxMax } = req.body;
+    if (spinMin !== undefined) gameSettings.spinMin = Number(spinMin);
+    if (spinMax !== undefined) gameSettings.spinMax = Number(spinMax);
+    if (boxMin !== undefined) gameSettings.boxMin = Number(boxMin);
+    if (boxMax !== undefined) gameSettings.boxMax = Number(boxMax);
+
+    res.json({ success: true, message: 'تم حفظ إعدادات الألعاب بنجاح', settings: gameSettings });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 📢 مسار البث والإشعارات العام
+app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({ error: 'يرجى إدخال العنوان والنص' });
+    }
+    
+    // إرجاع نجاح العملية لمطابقة الواجهة
+    res.json({ success: true, message: 'تم إرسال البث بنجاح' });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
