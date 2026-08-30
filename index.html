@@ -24,6 +24,14 @@
 
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
 
+    <!-- شاشة التحميل السريعة لمنع الفلاش -->
+    <div id="loadingView" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div class="w-16 h-16 gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 animate-bounce">
+            <i class="fa-solid fa-bolt-lightning text-3xl text-slate-950"></i>
+        </div>
+        <p class="text-xs text-amber-400 font-bold animate-pulse">جاري التحقق من الجلسة...</p>
+    </div>
+
     <!-- شريط التنبيهات الحية المتحرك -->
     <div id="liveTickerBar" class="bg-slate-950 border-b border-slate-800/80 py-2 px-3 overflow-hidden text-xs text-amber-400 flex items-center shadow-inner relative z-30 hide">
         <div class="flex items-center space-x-2 space-x-reverse ml-3 shrink-0 bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/30 text-amber-300">
@@ -43,8 +51,8 @@
         </div>
     </div>
 
-    <!-- شاشة الدخول والتسجيل -->
-    <div id="authView" class="p-6 mt-8">
+    <!-- شاشة الدخول والتسجيل (مخفية افتراضياً لمنع الفلاش) -->
+    <div id="authView" class="p-6 mt-8 hide">
         <div class="text-center mb-8">
             <div class="w-20 h-20 mx-auto gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 mb-4">
                 <i class="fa-solid fa-bolt-lightning text-3xl text-slate-950"></i>
@@ -69,7 +77,6 @@
                     <input type="password" id="loginPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
                 </div>
                 
-                <!-- زر نسيت كلمة المرور -->
                 <div class="flex justify-end pt-1">
                     <button type="button" onclick="openForgotPasswordModal()" class="text-xs text-amber-400 hover:text-amber-300 font-medium">
                         نسيت كلمة المرور؟
@@ -467,7 +474,6 @@
                 </button>
             </div>
 
-            <!-- الخطوة 1: طلب الرمز -->
             <form id="resetRequestForm" onsubmit="handleResetRequest(event)" class="space-y-3">
                 <p class="text-xs text-slate-400">أدخل بريدك الإلكتروني المسجل لإرسال رمز التحقق (OTP):</p>
                 <div>
@@ -476,7 +482,6 @@
                 <button type="submit" id="btnSendOtp" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs active:scale-95 transition-all">إرسال رمز التحقق</button>
             </form>
 
-            <!-- الخطوة 2: إدخال الرمز وكلمة المرور الجديدة -->
             <form id="resetConfirmForm" onsubmit="handleResetConfirm(event)" class="space-y-3 hide">
                 <p class="text-xs text-emerald-400 font-bold">تم إرسال الرمز! أدخل الرمز وكلمة المرور الجديدة:</p>
                 <div>
@@ -609,7 +614,6 @@
             }
         }
 
-        // --- وظائف استعادة كلمة المرور المحدثة مع زر التنبيه المباشر ---
         function openForgotPasswordModal() {
             const loginEmail = document.getElementById('loginEmail').value;
             if(loginEmail) {
@@ -763,13 +767,18 @@
 
         async function loadUserProfile() {
             const token = localStorage.getItem('token');
-            if(!token) return;
+            if(!token) {
+                document.getElementById('loadingView').classList.add('hide');
+                document.getElementById('authView').classList.remove('hide');
+                return;
+            }
             try {
                 const res = await fetch('/api/user/profile', {
                     headers: {'Authorization': `Bearer ${token}`}
                 });
                 const data = await res.json();
                 if(res.ok && data.user) {
+                    document.getElementById('loadingView').classList.add('hide');
                     document.getElementById('authView').classList.add('hide');
                     document.getElementById('appView').classList.remove('hide');
                     document.getElementById('liveTickerBar').classList.remove('hide');
@@ -794,6 +803,7 @@
                 }
             } catch(err) {
                 console.error(err);
+                logout();
             }
         }
 
@@ -808,7 +818,7 @@
             currentLevel++;
             let bonusAmount = 4 * Math.pow(2, currentLevel - 1);
             updateTierDisplay();
-            showToast(`مبروك! ترقيت للمستوى ${currentLevel} وحصلت على مكافأة ${bonusAmount}$ فوريّة!`, 'upgrade');
+            showToast(`مبروك! ترقيت للمستوى ${currentLevel} وححصلت على مكافأة ${bonusAmount}$ فوريّة!`, 'upgrade');
         }
 
         async function completeTask() {
@@ -936,6 +946,7 @@
 
         function logout() {
             localStorage.removeItem('token');
+            document.getElementById('loadingView').classList.add('hide');
             document.getElementById('appView').classList.add('hide');
             document.getElementById('authView').classList.remove('hide');
             document.getElementById('liveTickerBar').classList.add('hide');
@@ -943,9 +954,7 @@
         }
 
         window.onload = () => {
-            if(localStorage.getItem('token')) {
-                loadUserProfile();
-            }
+            loadUserProfile();
         }
     </script>
 </body>
