@@ -4,7 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend'); // 🔹 استخدام SDK الرسمي لـ Resend
 
 const app = express();
 app.use(express.json());
@@ -12,21 +12,13 @@ app.use(cors());
 
 app.use(express.static(path.join(__dirname)));
 
-// 🔐 إعدادات المفتاح السري ومتغيرات البيئة على Railway
+// 🔐 إعدادات المفتاح السري ومتغيرات البيئة
 const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
 
-// 📧 إعداد موصل البريد الإلكتروني (Resend SMTP Transporter)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.resend.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'resend', // تترك الكلمة كما هي
-    pass: process.env.RESEND_API_KEY // يتم قرائته من متغيرات البيئة في Railway
-  }
-});
+// 📧 إعداد عميل Resend (ربط عبر API مباشرة عبر HTTP لضمان عدم التعليق)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// 1. الاتصال بقاعدة بيانات MongoDB (Railway Environment Variable)
+// 1. الاتصال بقاعدة بيانات MongoDB
 const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
 
 if (!MONGO_URI) {
@@ -56,7 +48,6 @@ const userSchema = new mongoose.Schema({
     totalDeposits: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 }
   },
-  // 🔑 حقول استعادة كلمة المرور عبر الـ OTP
   resetOTP: { type: String, default: null },
   resetOTPExpire: { type: Date, default: null }
 }, { timestamps: true });
@@ -130,7 +121,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 🔑 1. طلب رمز استعادة كلمة المرور عبر Resend OTP
+// 🔑 1. طلب رمز استعادة كلمة المرور عبر Resend API
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -141,15 +132,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(404).json({ error: 'البريد الإلكتروني غير مسجل لدينا' });
     }
 
-    // توليد رمز OTP مكون من 6 أرقام
+    // توليد رمز OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // صلاحية الرمز 10 دقائق
     user.resetOTP = otp;
     user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    const mailOptions = {
+    // الإرسال عبر Resend API Direct (HTTP)
+    const { data, error } = await resend.emails.send({
       from: 'BOOST Platform <onboarding@resend.dev>',
       to: user.email,
       subject: 'رمز استعادة كلمة المرور - BOOST',
@@ -163,12 +154,17 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           <p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">هذا الرمز صالِح لمدة 10 دقائق فقط.</p>
         </div>
       `
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error('❌ Resend API Error:', error);
+      return res.status(500).json({ error: 'فشل إرسال البريد: ' + error.message });
+    }
+
     res.status(200).json({ success: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' });
 
   } catch (err) {
+    console.error('❌ Server Catch Error:', err);
     res.status(500).json({ error: 'فشل إرسال البريد الإلكتروني: ' + err.message });
   }
 });
@@ -219,7 +215,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// جلب بيانات المستخدم الحالي
+// باقي المسارات (Profile, Tasks, Wallet, Spin, Withdraw)...
 app.get('/api/user/profile', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -229,7 +225,6 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// إنجاز مهمة يومية
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -253,7 +248,6 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// شحن وإيداع رصيد المحفظة
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -287,7 +281,6 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// 🎡 مسار عجلة الحظ الكبرى
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -317,7 +310,6 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   }
 });
 
-// 🎁 مسار الصندوق المفاجئ
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -347,7 +339,6 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// طلب سحب رصيد المحفظة
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -391,7 +382,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   }
 });
 
-// 🚀 تشغيل الخادم والربط الذاتي مع المنفذ المخصص من Railway
+// 🚀 تشغيل الخادم
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
