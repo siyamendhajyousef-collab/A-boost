@@ -87,7 +87,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية (يدعم نموذج openai/gpt-oss-120b والبث المباشر)
+// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية (إرجاع JSON مباشر ليتوافق مع الواجهة الأمامية)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -137,8 +137,8 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // طلب البث المباشر عبر Groq SDK
-    const chatCompletion = await groq.chat.completions.create({
+    // طلب الاستجابة مباشرة بنمط JSON عبر Groq SDK
+    const completion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
@@ -146,31 +146,20 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
       model: "openai/gpt-oss-120b",
       temperature: 1,
       max_completion_tokens: 2048,
-      top_p: 1,
-      stream: true,
-      reasoning_effort: "medium",
-      stop: null
+      top_p: 1
     });
 
-    // ضبط تروس الاستجابة لدعم البث (Streaming)
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Transfer-Encoding', 'chunked');
+    const replyText = completion.choices[0]?.message?.content;
 
-    for await (const chunk of chatCompletion) {
-      const text = chunk.choices[0]?.delta?.content || '';
-      if (text) {
-        res.write(text);
-      }
+    if (replyText) {
+      return res.json({ reply: replyText.trim() });
+    } else {
+      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد حالياً." });
     }
-
-    res.end();
 
   } catch (error) {
     console.error("❌ Groq SDK Error:", error);
-    if (!res.headersSent) {
-      return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
-    }
-    res.end();
+    return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
   }
 });
 
