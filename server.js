@@ -190,9 +190,9 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      model: "openai/gpt-oss-120b",
+      model: "llama-3.3-70b-versatile",
       temperature: 1,
-      max_completion_tokens: 2048,
+      max_completion_tokens: 1024,
       top_p: 1
     });
 
@@ -274,7 +274,7 @@ app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
   }
 });
 
-// 🌳 مسار جلب شجرة الفريق (الإحالات) - [تم تصحيحه لضمان مطابقة الكود بدقة]
+// 🌳 مسار جلب شجرة الفريق (الإحالات)
 app.get('/api/user/referrals', verifyToken, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
@@ -282,7 +282,6 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
 
     const userCode = currentUser.referralCode ? currentUser.referralCode.trim().toUpperCase() : '';
 
-    // البحث عن كل المستخدمين الذين تم إدخال كود هذا المستخدم كـ referredBy بغض النظر عن حالة الأحرف
     const referrals = await User.find({ 
       referredBy: { $regex: new RegExp(`^${userCode}$`, 'i') } 
     })
@@ -301,7 +300,7 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
   }
 });
 
-// 📝 تسجيل مستخدم جديد - [تم تصحيحه لضمان جلب والتحقق من كود الإحالة وحفظه بالأحرف الكبيرة]
+// 📝 تسجيل مستخدم جديد
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, referralCode } = req.body;
@@ -317,7 +316,6 @@ app.post('/api/auth/register', async (req, res) => {
     let validReferralCode = null;
     if (referralCode && typeof referralCode === 'string' && referralCode.trim() !== '') {
       const cleanCode = referralCode.trim().toUpperCase();
-      // بحث مرن عن المُحيل بغض النظر عن حالة الأحرف
       const referrerUser = await User.findOne({ 
         referralCode: { $regex: new RegExp(`^${cleanCode}$`, 'i') } 
       });
