@@ -207,7 +207,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('-password -resetOTP -twoFactorCode');
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
     if (user.isBanned) return res.status(403).json({ error: 'تم تعليق حسابك من قبل الإدارة. يرجى التواصل مع الدعم الفني.' });
 
@@ -229,7 +229,7 @@ const verifyAdmin = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user || user.role !== 'admin') {
+    if (!user || user.role !== 'admin' || user.isBanned) {
       return res.status(403).json({ error: 'وصول مرفوض: هذه المنطقة مخصصة للمدير فقط' });
     }
 
@@ -252,7 +252,7 @@ app.get('/api/vip-levels', async (req, res) => {
   }
 });
 
-// 🤖 مسار المستشار الذكي (Ag AI Advisor) - تم إصلاح مشكلة 404 وتحديث النماذج
+// 🤖 مسار المستشار الذكي (Ag AI Advisor)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -299,11 +299,11 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // قائمة بالنماذج المتاحة للربط الفوري وتفادي أخطاء 404
+    // 🎯 تحديث النماذج لتتطابق مع المتاحة في المشروع بناءً على إعدادات Groq الخاص بك
     const modelsToTry = [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'mixtral-8x7b-32768'
+      'openai/gpt-oss-120b',
+      'qwen/qwen3.6-27b',
+      'qwen/qwen3.8-27b'
     ];
 
     let replyText = null;
@@ -722,12 +722,21 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     
-    const userProfile = user.toObject();
-    delete userProfile.password;
-    delete userProfile.resetOTP;
-    delete userProfile.twoFactorCode;
+    const safeUser = {
+      _id: user._id,
+      email: user.email,
+      role: user.role,
+      tierCode: user.tierCode,
+      assetWallet: user.assetWallet,
+      todayCompletedTasks: user.todayCompletedTasks,
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      walletAddress: user.walletAddress,
+      isBanned: user.isBanned,
+      wallet: user.wallet
+    };
 
-    res.status(200).json({ success: true, token, user: userProfile });
+    res.status(200).json({ success: true, token, user: safeUser });
   } catch (err) {
     res.status(500).json({ error: 'حدث خطأ في تسجيل الدخول' });
   }
@@ -872,7 +881,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
         }
       },
       { new: true, session }
-    ).select('-password');
+    ).select('-password -resetOTP -twoFactorCode');
 
     if (!updatedUser) {
       await session.abortTransaction();
@@ -1263,7 +1272,7 @@ app.post('/api/admin/reset-daily-tasks', verifyAdmin, async (req, res) => {
 app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
   try {
     const { userId, isBanned } = req.body;
-    const user = await User.findByIdAndUpdate(userId, { isBanned }, { new: true });
+    const user = await User.findByIdAndUpdate(userId, { isBanned }, { new: true }).select('-password -resetOTP -twoFactorCode');
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     res.json({
@@ -1288,7 +1297,13 @@ app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
     if (walletAddress !== undefined) user.walletAddress = String(walletAddress).trim();
 
     await user.save();
-    res.json({ success: true, message: 'تم تعديل بيانات المستخدم بنجاح', user });
+    
+    const safeUser = user.toObject();
+    delete safeUser.password;
+    delete safeUser.resetOTP;
+    delete safeUser.twoFactorCode;
+
+    res.json({ success: true, message: 'تم تعديل بيانات المستخدم بنجاح', user: safeUser });
   } catch (err) {
     res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
   }
