@@ -86,7 +86,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq API (محدث للنموذج النشط llama-3.1-8b-instant)
+// 🤖 مسار المستشار الذكي المربوط بـ Groq API (محدث مع تجربة عدة نماذج متوفرة لتفادي أخطاء Decommissioned/Not Found)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -133,31 +133,55 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // طلب مباشر ومستقر للنموذج النشط llama-3.1-8b-instant
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        max_tokens: 200,
-        temperature: 0.7
-      })
-    });
+    // قائمة بالأنساق النشطة المتاحة لدى Groq للتجربة التلقائية
+    const modelsToTry = [
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it',
+      'llama-3.1-8b-instant'
+    ];
 
-    const data = await groqResponse.json();
+    let aiReply = null;
+    let lastError = null;
 
-    if (data.choices && data.choices[0]?.message?.content) {
-      return res.json({ reply: data.choices[0].message.content.trim() });
+    for (const modelName of modelsToTry) {
+      try {
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey.trim()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message }
+            ],
+            max_tokens: 200,
+            temperature: 0.7
+          })
+        });
+
+        const data = await groqResponse.json();
+
+        if (data.choices && data.choices[0]?.message?.content) {
+          aiReply = data.choices[0].message.content.trim();
+          console.log(`✅ Success using model: ${modelName}`);
+          break;
+        } else {
+          lastError = data;
+          console.warn(`⚠️ Model ${modelName} failed:`, data.error?.message || data);
+        }
+      } catch (err) {
+        console.warn(`⚠️ Error connecting to model ${modelName}:`, err.message);
+      }
+    }
+
+    if (aiReply) {
+      return res.json({ reply: aiReply });
     } else {
-      console.error("Groq Response Error:", data);
-      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد مفصّل حالياً، حاول مرة أخرى." });
+      console.error("❌ All models failed. Last error:", lastError);
+      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد حالياً. يرجى التأكد من صحة API Key الخاص بـ Groq." });
     }
 
   } catch (error) {
