@@ -1,5 +1,5 @@
 // تمت مراجعة وتحسين الملف بالكامل لتطبيق أفضل الممارسات الأمنية ولتغطية كافة الثغرات المحتملة.
-// تم تحديث إعدادات CORS لتكون أكثر مرونة (Railway, Localhost, ALLOWED_ORIGINS).
+// تم تحديث إعدادات CORS وتفعيل trust proxy لحل خطأ ERR_ERL_UNEXPECTED_X_FORWARDED_FOR في Railway.
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -14,6 +14,9 @@ const webpush = require('web-push');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// 🟢 تفعيل الثقة بالبروكسي (ضروري جداً لمنصة Railway للتعامل مع X-Forwarded-For و rate-limit)
+app.set('trust proxy', 1);
 
 // 🛡️ تعزيز حماية الخادم ورؤوس HTTP
 app.use(helmet({
