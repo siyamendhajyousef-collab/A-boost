@@ -343,9 +343,17 @@
             <div class="glass-card p-4 rounded-3xl space-y-3 border border-amber-500/20">
                 <h4 class="text-xs font-bold text-amber-400 flex items-center"><i class="fa-solid fa-wallet ml-2"></i> عنوان محفظة السحب المثبت (TRC20)</h4>
                 <div>
-                    <input type="text" id="profileWalletAddress" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono" placeholder="أدخل عنوان محفظة TRC20 المثبت">
+                    <input type="text" id="profileWalletAddress" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed" placeholder="أدخل عنوان محفظة TRC20 المثبت">
                 </div>
-                <button type="button" onclick="saveProfileWallet()" class="w-full py-2.5 gold-gradient text-slate-950 text-xs font-bold rounded-xl active:scale-95 transition-all">حفظ عنوان المحفظة</button>
+                <!-- حاوية شارة القفل والتثبيت -->
+                <div id="walletStatusContainerProfile"></div>
+                <button type="button" id="btnSaveProfileWallet" onclick="saveProfileWallet()" class="w-full py-2.5 gold-gradient text-slate-950 text-xs font-bold rounded-xl active:scale-95 transition-all">حفظ عنوان المحفظة</button>
+
+                <!-- ملاحظة أمان تغيير العنوان -->
+                <div class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-300 space-y-1 mt-2">
+                    <p class="font-bold flex items-center"><i class="fa-solid fa-circle-info ml-1.5 text-amber-400"></i> تنبيه أمني مهم:</p>
+                    <p class="text-slate-300 leading-relaxed">إذا كنت تريد تغيير عنوان السحب عليك التواصل مع المشرف، وتتوقف عمليات السحب تلقائياً بعد تغيير العنوان لمدة <strong class="text-amber-400 font-bold">24 ساعة</strong> للمصادقة والحماية.</p>
+                </div>
             </div>
 
             <div class="glass-card p-4 rounded-3xl space-y-3">
@@ -464,8 +472,16 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">عنوان محفظة TRC20 المثبت</label>
-                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 font-mono" placeholder="T...">
+                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed" placeholder="T...">
+                <div id="walletStatusContainerWithdraw"></div>
             </div>
+
+            <!-- تنبيه أمني في نافذة السحب -->
+            <div class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[10px] text-amber-300">
+                <i class="fa-solid fa-shield-halved ml-1 text-amber-400"></i>
+                لتغيير العنوان المثبت تواصل مع المشرف (تتوقف السحوبات 24 ساعة للمصادقة).
+            </div>
+
             <button type="button" onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
         </div>
     </div>
@@ -722,6 +738,39 @@
             document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
         }
 
+        // دالة مساعدة لتحديث الواجهة وقفل العنوان
+        function lockWalletUI(address) {
+            if (!address) return;
+            
+            const profileInput = document.getElementById('profileWalletAddress');
+            const withdrawInput = document.getElementById('withdrawWallet');
+            const saveBtn = document.getElementById('btnSaveProfileWallet');
+            const statusProfile = document.getElementById('walletStatusContainerProfile');
+            const statusWithdraw = document.getElementById('walletStatusContainerWithdraw');
+
+            if (profileInput) {
+                profileInput.value = address;
+                profileInput.disabled = true;
+            }
+            if (withdrawInput) {
+                withdrawInput.value = address;
+                withdrawInput.disabled = true;
+            }
+            if (saveBtn) {
+                saveBtn.style.display = 'none';
+            }
+
+            const badgeHTML = `
+                <div class="flex items-center gap-1.5 text-emerald-400 font-bold text-xs mt-2 bg-emerald-950/40 p-2 rounded-xl border border-emerald-500/30">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>العنوان مفعل ومثبت بشكل دائم (لا يمكن تعديله)</span>
+                </div>
+            `;
+
+            if (statusProfile) statusProfile.innerHTML = badgeHTML;
+            if (statusWithdraw) statusWithdraw.innerHTML = badgeHTML;
+        }
+
         async function loadUserProfile() {
             const token = localStorage.getItem('token');
             if(!token) {
@@ -745,9 +794,9 @@
                     document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks || 0;
                     document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
                     
-                    if (data.user.withdrawWallet) {
-                        document.getElementById('withdrawWallet').value = data.user.withdrawWallet;
-                        document.getElementById('profileWalletAddress').value = data.user.withdrawWallet;
+                    const savedAddress = data.user.withdrawWallet || data.user.walletAddress;
+                    if (savedAddress && savedAddress.trim() !== '') {
+                        lockWalletUI(savedAddress);
                     }
 
                     currentUserTier = data.user.tierCode || 'A1';
@@ -821,9 +870,9 @@
                 });
 
                 const data = await res.json();
-                if (res.ok) {
-                    document.getElementById('withdrawWallet').value = walletAddress;
-                    showToast('✅ تم حفظ عنوان المحفظة بنجاح', 'win');
+                if (res.ok && (data.success || data.message)) {
+                    lockWalletUI(walletAddress);
+                    showToast('✅ تم تثبيت عنوان المحفظة بنجاح', 'win');
                 } else {
                     showToast('❌ ' + (data.error || 'فشل حفظ العنوان'));
                 }
@@ -852,7 +901,6 @@
             }
         }
 
-        // 🎡 تدوير العجلة المربوطة بالسيرفر
         async function triggerLuckySpin() {
             const token = localStorage.getItem('token');
             const wheel = document.getElementById('spinWheelVisual');
@@ -878,7 +926,6 @@
             }
         }
 
-        // 🎁 الصندوق الغامض المربوط بالسيرفر
         async function openMysteryBox() {
             const token = localStorage.getItem('token');
             try {
@@ -1009,7 +1056,6 @@
             }
         }
 
-        // 📜 جلب وعرض سجل المعاملات المالية المصحح
         async function openHistoryModal() {
             document.getElementById('historyModal').classList.remove('hide');
             const listEl = document.getElementById('historyList');
