@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ag Boost - لوحة تحكم الإدارة الشاملة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #030712; color: #f3f4f6; }
+        .glass-card { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.07); }
+        .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .purple-gradient { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+        .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .rose-gradient { background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%); }
+        .hide { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
+
+    <!-- القائمة الجانبية -->
+    <aside class="w-full md:w-64 glass-card border-b md:border-b-0 md:border-l border-slate-800 p-4 flex flex-col justify-between shrink-0">
+        <div class="space-y-6">
+            <div class="flex items-center space-x-3 space-x-reverse px-2">
+                <div class="w-10 h-10 gold-gradient rounded-2xl flex items-center justify-center font-black text-slate-950 text-xl shadow-lg">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-white text-base">Ag Admin</h1>
+                    <span class="text-[10px] text-amber-400 font-bold">لوحة التحكم العليا v3.0</span>
+                </div>
+            </div>
+
+            <nav class="space-y-1">
+                <button onclick="switchAdminTab('overview')" id="btn-tab-overview" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all">
+                    <i class="fa-solid fa-chart-pie text-base"></i>
+                    <span>نظرة عامة والسرعة</span>
+                </button>
+                <button onclick="switchAdminTab('users')" id="btn-tab-users" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
+                    <i class="fa-solid fa-users text-base"></i>
+                    <span>إدارة المستخدمين</span>
+                </button>
+                <button onclick="switchAdminTab('withdrawals')" id="btn-tab-withdrawals" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
+                    <i class="fa-solid fa-money-bill-transfer text-base"></i>
+                    <span>طلبات السحب والشحن</span>
+                </button>
+                <button onclick="switchAdminTab('games')" id="btn-tab-games" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
+                    <i class="fa-solid fa-dharmachakra text-base"></i>
+                    <span>إعدادات العجلة والصناديق</span>
+                </button>
+                <button onclick="switchAdminTab('broadcast')" id="btn-tab-broadcast" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
+                    <i class="fa-solid fa-bullhorn text-base"></i>
+                    <span>الإشعارات والبث</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="pt-4 border-t border-slate-800">
+            <button onclick="adminLogout()" class="w-full py-2.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 space-x-reverse border border-rose-500/20">
+                <i class="fa-solid fa-power-off"></i>
+                <span>تسجيل الخروج</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
+
+        <!-- تبويب: نظرة عامة -->
+        <div id="admin-overview" class="space-y-6">
+            <h2 class="text-xl font-black text-white">إحصائيات المنصة الحية</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5 rounded-3xl border border-slate-800 space-y-2">
+                    <span class="text-xs text-slate-400 font-bold">إجمالي المستخدمين</span>
+                    <div class="flex justify-between items-baseline">
+                        <h3 id="statTotalUsers" class="text-2xl font-black text-white">0</h3>
+                        <span class="text-xs text-emerald-400 font-bold">+12%</span>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-3xl border border-slate-800 space-y-2">
+                    <span class="text-xs text-slate-400 font-bold">إجمالي الإيداعات</span>
+                    <div class="flex justify-between items-baseline">
+                        <h3 id="statTotalDeposits" class="text-2xl font-black text-emerald-400">0.00 $</h3>
+                        <i class="fa-solid fa-wallet text-emerald-400"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-3xl border border-slate-800 space-y-2">
+                    <span class="text-xs text-slate-400 font-bold">إجمالي المسحوبات</span>
+                    <div class="flex justify-between items-baseline">
+                        <h3 id="statTotalWithdrawals" class="text-2xl font-black text-amber-400">0.00 $</h3>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-amber-400"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-3xl border border-slate-800 space-y-2">
+                    <span class="text-xs text-slate-400 font-bold">طلبات سحب معلقة</span>
+                    <div class="flex justify-between items-baseline">
+                        <h3 id="statPendingRequests" class="text-2xl font-black text-rose-400">0</h3>
+                        <span class="text-xs text-rose-400 font-bold animate-pulse">تطلب الإجراء</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- تبويب: إدارة المستخدمين -->
+        <div id="admin-users" class="space-y-6 hide">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 class="text-xl font-black text-white">إدارة حسابات الأعضاء</h2>
+                <input type="text" id="txtSearchUser" onkeyup="filterUsersTable()" placeholder="ابحث بالبريد الإلكتروني..." class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 w-full sm:w-64">
+            </div>
+
+            <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="p-4">المستخدم</th>
+                                <th class="p-4">المستوى</th>
+                                <th class="p-4">الرصيد</th>
+                                <th class="p-4">المهام المكتملة</th>
+                                <th class="p-4">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblUsersBody" class="divide-y divide-slate-800/50">
+                            <!-- بيانات مستخدمين تجريبية تجلب لاحقاً من API السيرفر -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- تبويب: طلبات السحب والشحن -->
+        <div id="admin-withdrawals" class="space-y-6 hide">
+            <h2 class="text-xl font-black text-white">طلبات المعاملات المالية Pending</h2>
+
+            <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="p-4">المستخدم</th>
+                                <th class="p-4">النوع</th>
+                                <th class="p-4">المبلغ</th>
+                                <th class="p-4">تفاصيل المحفظة</th>
+                                <th class="p-4">الحالة</th>
+                                <th class="p-4">القرار</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblTransactionsBody" class="divide-y divide-slate-800/50">
+                            <!-- الطلبات المعلقة -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- تبويب: التحكم في العجلة وصندوق المفاجآت -->
+        <div id="admin-games" class="space-y-6 hide">
+            <h2 class="text-xl font-black text-white">إعدادات أرباح العجلة والصناديق</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card p-6 rounded-3xl border border-slate-800 space-y-4">
+                    <h3 class="font-bold text-amber-400 text-sm flex items-center">
+                        <i class="fa-solid fa-dharmachakra ml-2"></i> حدود مكافأة عجلة الحظ
+                    </h3>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">الحد أدنى للربح ($)</label>
+                        <input type="number" id="cfgSpinMin" value="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">الحد الأقصى للربح ($)</label>
+                        <input type="number" id="cfgSpinMax" value="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                    </div>
+                    <button onclick="saveGameSettings()" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">حفظ الإعدادات</button>
+                </div>
+
+                <div class="glass-card p-6 rounded-3xl border border-slate-800 space-y-4">
+                    <h3 class="font-bold text-purple-400 text-sm flex items-center">
+                        <i class="fa-solid fa-box-open ml-2"></i> حدود مكافأة الصندوق الغامض
+                    </h3>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">الحد أدنى للربح ($)</label>
+                        <input type="number" id="cfgBoxMin" value="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">الحد الأقصى للربح ($)</label>
+                        <input type="number" id="cfgBoxMax" value="25" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                    </div>
+                    <button onclick="saveGameSettings()" class="w-full py-3 purple-gradient text-white font-bold rounded-xl text-xs">حفظ الإعدادات</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- تبويب: الإشعارات العامة -->
+        <div id="admin-broadcast" class="space-y-6 hide">
+            <h2 class="text-xl font-black text-white">إرسال إشعار عام لكل المستخدمين</h2>
+
+            <div class="glass-card p-6 rounded-3xl border border-slate-800 space-y-4 max-w-xl">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">عنوان الإشعار</label>
+                    <input type="text" id="txtBroadcastTitle" placeholder="مثال: مكافآت جديدة بمناسبة العيد!" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">نص الرسالة</label>
+                    <textarea id="txtBroadcastBody" rows="4" placeholder="اكتب التفاصيل التي تظهر في شريط أو مركز إشعارات المستخدم..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white"></textarea>
+                </div>
+                <button onclick="sendBroadcastNotification()" class="w-full py-3 emerald-gradient text-white font-bold rounded-xl text-xs">إرسال البث الآن</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- نافذة تعديل رصيد ومستوى مستخدم -->
+    <div id="editUserModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white">تعديل بيانات المستخدم</h3>
+                <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <input type="hidden" id="editUserId">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">المستوى الحالي</label>
+                <select id="editUserTier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                    <option value="A1">A1</option>
+                    <option value="A2">A2</option>
+                    <option value="A3">A3</option>
+                    <option value="A4">A4</option>
+                    <option value="A5">A5</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">رصيد المحفظة ($)</label>
+                <input type="number" id="editUserBalance" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+            </div>
+            <button onclick="submitEditUser()" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تحديث البيانات</button>
+        </div>
+    </div>
+
+    <script>
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hide');
+            setTimeout(() => toast.classList.add('hide'), 3000);
+        }
+
+        function switchAdminTab(tab) {
+            ['overview', 'users', 'withdrawals', 'games', 'broadcast'].forEach(t => {
+                document.getElementById(`admin-${t}`).classList.add('hide');
+                const btn = document.getElementById(`btn-tab-${t}`);
+                if(btn) btn.className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all";
+            });
+            document.getElementById(`admin-${tab}`).classList.remove('hide');
+            document.getElementById(`btn-tab-${tab}`).className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
+        }
+
+        async function fetchAdminOverview() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/overview', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    document.getElementById('statTotalUsers').innerText = data.totalUsers || 0;
+                    document.getElementById('statTotalDeposits').innerText = (data.totalDeposits || 0) + ' $';
+                    document.getElementById('statTotalWithdrawals').innerText = (data.totalWithdrawals || 0) + ' $';
+                    document.getElementById('statPendingRequests').innerText = data.pendingCount || 0;
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function fetchUsersList() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const users = await res.json();
+                if(res.ok && Array.isArray(users)) {
+                    const tbody = document.getElementById('tblUsersBody');
+                    tbody.innerHTML = users.map(u => `
+                        <tr>
+                            <td class="p-4 font-bold text-white">${u.email}</td>
+                            <td class="p-4"><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">${u.tierCode || 'A1'}</span></td>
+                            <td class="p-4 text-emerald-400 font-mono font-bold">${Number(u.wallet?.balance || 0).toFixed(2)} $</td>
+                            <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
+                            <td class="p-4 space-x-2 space-x-reverse">
+                                <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40">تعديل</button>
+                                <button onclick="toggleBlockUser('${u._id}')" class="px-3 py-1 bg-rose-600/20 text-rose-400 rounded-lg text-[10px] font-bold hover:bg-rose-600/40">حظر</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function openEditUser(id, tier, balance) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editUserTier').value = tier;
+            document.getElementById('editUserBalance').value = balance;
+            document.getElementById('editUserModal').classList.remove('hide');
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').classList.add('hide');
+        }
+
+        async function submitEditUser() {
+            const token = localStorage.getItem('token');
+            const userId = document.getElementById('editUserId').value;
+            const tierCode = document.getElementById('editUserTier').value;
+            const balance = parseFloat(document.getElementById('editUserBalance').value);
+
+            try {
+                const res = await fetch('/api/admin/users/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId, tierCode, balance })
+                });
+                if(res.ok) {
+                    showToast('تم تحديث بيانات المستخدم بنجاح');
+                    closeEditUserModal();
+                    fetchUsersList();
+                } else {
+                    showToast('حدث خطأ أثناء التحديث');
+                }
+            } catch(e) { showToast('خطأ في الاتصال'); }
+        }
+
+        async function saveGameSettings() {
+            const token = localStorage.getItem('token');
+            const spinMin = parseFloat(document.getElementById('cfgSpinMin').value);
+            const spinMax = parseFloat(document.getElementById('cfgSpinMax').value);
+            const boxMin = parseFloat(document.getElementById('cfgBoxMin').value);
+            const boxMax = parseFloat(document.getElementById('cfgBoxMax').value);
+
+            try {
+                const res = await fetch('/api/admin/settings/games', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ spinMin, spinMax, boxMin, boxMax })
+                });
+                if(res.ok) showToast('تم حفظ حدود المكافآت والألعاب بنجاح');
+            } catch(e) { showToast('خطأ بالاتصال'); }
+        }
+
+        async function sendBroadcastNotification() {
+            const title = document.getElementById('txtBroadcastTitle').value;
+            const body = document.getElementById('txtBroadcastBody').value;
+            const token = localStorage.getItem('token');
+
+            if(!title || !body) return showToast('يرجى ملء جميع الحقول');
+
+            try {
+                const res = await fetch('/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ title, body })
+                });
+                if(res.ok) {
+                    showToast('تم إرسال الإشعار لجميع الأعضاء بنجاح');
+                    document.getElementById('txtBroadcastTitle').value = '';
+                    document.getElementById('txtBroadcastBody').value = '';
+                }
+            } catch(e) { showToast('خطأ بالاتصال'); }
+        }
+
+        function adminLogout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        window.onload = () => {
+            fetchAdminOverview();
+            fetchUsersList();
+        }
+    </script>
+</body>
+</html>
