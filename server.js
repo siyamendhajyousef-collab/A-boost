@@ -241,7 +241,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   }
 });
 
-// 📌 مسار حفظ/تحديث عنوان محفظة السحب (المعدل مع الحماية ضد التعديل)
+// 📌 مسار حفظ/تحديث عنوان محفظة السحب
 app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
   try {
     const { walletAddress } = req.body;
@@ -255,14 +255,12 @@ app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
-    // التحقق من وجود عنوان محفظة ثابت سابقاً
     if (user.walletAddress && user.walletAddress.trim() !== '') {
       return res.status(400).json({ 
         error: 'عنوان المحفظة مثبت سابقاً، لا يمكنك تعديله إلا عن طريق التواصل مع الأدمن.' 
       });
     }
 
-    // حفظ وتثبيت العنوان لأول مرة
     user.walletAddress = walletAddress.trim();
     await user.save();
 
@@ -270,6 +268,27 @@ app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
       success: true,
       message: 'تم حفظ وتثبيت عنوان المحفظة بنجاح',
       walletAddress: user.walletAddress
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🌳 مسار جلب شجرة الفريق (الإحالات)
+app.get('/api/user/referrals', verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const referrals = await User.find({ referredBy: currentUser.referralCode })
+      .select('email tierCode createdAt wallet.balance')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      referralCode: currentUser.referralCode,
+      totalReferrals: referrals.length,
+      referrals
     });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
@@ -607,7 +626,6 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
 
-    // خصم الرصيد تزامناً لمنع التكرار والسحب المزدوج
     const updatedUser = await User.findOneAndUpdate(
       { _id: req.user.id, 'wallet.balance': { $gte: withdrawNum } },
       {
@@ -748,7 +766,6 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
       tx.status = 'approved';
     } else if (action === 'reject') {
       tx.status = 'rejected';
-      // إرجاع المبلغ لـ balance المحفظة عند الرفض
       await User.findByIdAndUpdate(tx.userId, {
         $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
       });
