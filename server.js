@@ -27,7 +27,7 @@ let gameSettings = {
   boxMax: 25
 };
 
-// 1. الاتصال بقاعدة بيانات MongoDB
+// ==================== 1. الاتصال بقاعدة البيانات ====================
 const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
 
 if (!MONGO_URI) {
@@ -138,7 +138,7 @@ const verifyAdmin = async (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي
+// 🤖 مسار المستشار الذكي (Ag AI Advisor)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -242,7 +242,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   }
 });
 
-// تسجيل مستخدم جديد
+// 📝 تسجيل مستخدم جديد
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, referralCode } = req.body;
@@ -272,7 +272,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// تسجيل الدخول مع فحص الحظر
+// 🔑 تسجيل الدخول
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -296,7 +296,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// طلب رمز استعادة كلمة المرور
+// 📩 طلب رمز استعادة كلمة المرور
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -341,7 +341,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
-// التحقق من صحة الرمز
+// 🔍 التحقق من صحة الرمز
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -361,7 +361,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
-// إعادة تعيين كلمة المرور
+// 🔄 إعادة تعيين كلمة المرور
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -387,7 +387,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// البروفايل
+// 👤 البروفايل
 app.get('/api/user/profile', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -397,7 +397,7 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// إكمال المهام وتحديث الأرباح
+// ✅ إكمال المهام وتحديث الأرباح
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -436,7 +436,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// الإيداع
+// 💳 الإيداع
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -473,7 +473,7 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// 📜 جلب سجل المعاملات المالية للمستخدم الحالي (جديد)
+// 📜 جلب سجل المعاملات المالية للمستخدم الحالي
 app.get('/api/transactions/my-history', verifyToken, async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.user.id })
@@ -548,7 +548,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 السحب
+// 💸 طلب السحب
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -573,7 +573,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
 
-    // خصم الرصيد في العمليات التزامنية لمنع السحب المزدوج
+    // خصم الرصيد تزامناً لمنع التكرار والسحب المزدوج
     const updatedUser = await User.findOneAndUpdate(
       { _id: req.user.id, 'wallet.balance': { $gte: withdrawNum } },
       {
@@ -607,12 +607,12 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
 
 // ==================== 5. مسارات الإدارة (Admin APIs) ====================
 
-// 🔐 الرابط السري لفتح ملف صفحة الأدمن
+// 🔐 الرابط السري لفتح صفحة الأدمن
 app.get('/my-secret-admin-panel-99', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// 📊 جلب الإحصائيات العامة للمنصة
+// 📊 الإحصائيات العامة
 app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -642,7 +642,7 @@ app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
   }
 });
 
-// 👥 جلب قائمة المستخدمين
+// 👥 قائمة المستخدمين
 app.get('/api/admin/users', verifyAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
@@ -652,7 +652,7 @@ app.get('/api/admin/users', verifyAdmin, async (req, res) => {
   }
 });
 
-// 🚫 مسار حظر أو إلغاء حظر مستخدم
+// 🚫 حظر أو إلغاء حظر مستخدم
 app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
   try {
     const { userId, isBanned } = req.body;
@@ -686,7 +686,7 @@ app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   }
 });
 
-// 💸 جلب طلبات السحب المعلقة
+// 💸 جلب طلبات السحب
 app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   try {
     const withdrawals = await Transaction.find({ type: 'withdraw' })
@@ -748,7 +748,7 @@ app.post('/api/admin/settings/games', verifyAdmin, async (req, res) => {
   }
 });
 
-// 📢 مسار البث والإشعارات العام
+// 📢 مسار البث والإشعارات
 app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
   try {
     const { title, body } = req.body;
