@@ -86,7 +86,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq API
+// 🤖 مسار المستشار الذكي المربوط بـ Groq API (معدّل ومحدث للنماذج المتاحة)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -111,7 +111,6 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
       });
     }
 
-    // دعم قراءة المفتاح باسم GROQ_API_KEY أو Boostai لتفادي أي أخطاء
     const apiKey = process.env.GROQ_API_KEY || process.env.Boostai;
     if (!apiKey) {
       console.error("⚠️ GROQ_API_KEY/Boostai is missing in Railway variables!");
@@ -134,29 +133,50 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        max_tokens: 200,
-        temperature: 0.7
-      })
-    });
+    // قائمة النماذج المتاحة بالتتابع لتفادي أخطاء 404
+    const availableModels = [
+      'llama-3.1-8b-instant',
+      'llama-3.3-70b-versatile',
+      'llama3-70b-8192'
+    ];
 
-    const data = await groqResponse.json();
+    let aiReply = null;
 
-    if (data.choices && data.choices[0]?.message?.content) {
-      return res.json({ reply: data.choices[0].message.content.trim() });
+    for (const modelName of availableModels) {
+      try {
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message }
+            ],
+            max_tokens: 200,
+            temperature: 0.7
+          })
+        });
+
+        const data = await groqResponse.json();
+
+        if (data.choices && data.choices[0]?.message?.content) {
+          aiReply = data.choices[0].message.content.trim();
+          break; // تم جلب الرد بنجاح، اخرج من الحلقة
+        } else {
+          console.warn(`⚠️ Model ${modelName} returned error, trying next...`, data);
+        }
+      } catch (err) {
+        console.warn(`⚠️ Error calling model ${modelName}:`, err.message);
+      }
+    }
+
+    if (aiReply) {
+      return res.json({ reply: aiReply });
     } else {
-      console.error("Groq Response Error:", data);
       return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد مفصّل حالياً، حاول مرة أخرى." });
     }
 
