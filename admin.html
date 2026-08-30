@@ -587,8 +587,11 @@
         // --- إدارة مستويات VIP المربوطة بالسيرفر بشكل مكتمل ونظامي ---
         async function fetchVipPlans() {
             const container = document.getElementById('plansContainer');
+            const token = localStorage.getItem('token');
             try {
-                const res = await fetch('/api/vip-levels');
+                const res = await fetch('/api/vip-levels', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const levels = await res.json();
                 
                 if (Array.isArray(levels) && levels.length > 0) {
@@ -632,11 +635,9 @@
         }
 
         async function updateVipPlan(code) {
-            // دالة تنظيف لقراءة المدخلات الرقمية وتجاوز قيم NaN بأمان
             const parseNum = (id, defaultVal = 0, isInt = false) => {
                 const el = document.getElementById(id);
                 if (!el) return defaultVal;
-                // تنظيف القيمة من أي رموز أو مسافات غريبة
                 const cleaned = String(el.value).trim().replace(/[^\d.-]/g, '');
                 if (cleaned === '') return defaultVal;
                 const num = isInt ? parseInt(cleaned, 10) : parseFloat(cleaned);
@@ -654,7 +655,6 @@
             
             const token = localStorage.getItem('token');
 
-            // فحص المرونة: التأكد من الاسم ومن أن عدد المهام لا يقل عن 1
             if (!name || tasksCount <= 0) {
                 return showToast('يرجى التأكد من كتابة اسم المستوى وعدد مهام صحيح');
             }
@@ -680,7 +680,7 @@
                 const data = await res.json();
                 if (res.ok && (data.success || data._id)) {
                     showToast(`تم تحديث مستوى ${code} بنجاح`);
-                    fetchVipPlans(); // إعادة تحميل البيانات لتحديث الشاشة
+                    fetchVipPlans();
                 } else {
                     showToast(data.error || data.message || 'حدث خطأ أثناء حفظ التحديث');
                 }
@@ -749,6 +749,11 @@
         }
 
         window.onload = () => {
+            // التحقق السريع من وجود التوكن محلياً قبل تشغيل الدوال
+            const token = localStorage.getItem('token');
+            if (!token) {
+                return adminLogout();
+            }
             fetchAdminOverview();
             fetchUsersList();
             fetchTransactionsList();
