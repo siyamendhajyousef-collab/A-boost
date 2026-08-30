@@ -40,7 +40,7 @@
         </div>
         <div class="overflow-hidden relative w-full flex">
             <div class="animate-ticker space-x-8 space-x-reverse text-slate-300">
-                <span>🔥 مكافآت الترقية المتضاعفة مفعلة</span>
+                <span>🔥 نظام العمولات اليومية وشجرة الفريق مفعل بنجاح</span>
                 <span>•</span>
                 <span>📈 أداء مؤشر Ag Index يرتفع بنسبة +14.2%</span>
                 <span>•</span>
@@ -316,15 +316,98 @@
             </div>
         </div>
 
-        <!-- واجهة الفريق -->
+        <!-- واجهة الفريق وشجرة العمولات والرتب -->
         <div id="view-team" class="p-4 space-y-4 hide">
             <div class="glass-card p-5 rounded-3xl text-center space-y-3">
                 <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
-                <h2 class="text-lg font-bold text-white">شجرة الفريق والإحالات</h2>
-                <p class="text-xs text-slate-400">شارك كود الإحالة الخاص بك لزيادة أرباحك وعمولات محفظتك.</p>
+                <h2 class="text-lg font-bold text-white">شجرة الفريق والعمولات اليومية</h2>
+                <p class="text-xs text-slate-400">شارك كود الإحالة واكسب عمولات يومية فور إنجاز فريقك لمهامه.</p>
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
                     <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
                     <button type="button" onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الكود</button>
+                </div>
+            </div>
+
+            <!-- إحصائيات عوائد العمولات اليومية للأجيال الثلاثة -->
+            <div class="glass-card p-4 rounded-3xl space-y-3 border border-amber-500/30">
+                <h3 class="text-xs font-bold text-amber-400 flex items-center"><i class="fa-solid fa-coins ml-1.5"></i> تفصيل العمولات اليومية للأجيال</h3>
+                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block mb-1">الفريق الأول (L1)</span>
+                        <b id="lblTeamL1Count" class="text-white text-sm block">0 شخص</b>
+                        <span class="text-emerald-400 text-[10px] mt-1 block">($0.01 / يوم)</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block mb-1">الفريق الثاني (L2)</span>
+                        <b id="lblTeamL2Count" class="text-white text-sm block">0 شخص</b>
+                        <span class="text-emerald-400 text-[10px] mt-1 block">($0.005 / يوم)</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block mb-1">الفريق الثالث (L3)</span>
+                        <b id="lblTeamL3Count" class="text-white text-sm block">0 شخص</b>
+                        <span class="text-emerald-400 text-[10px] mt-1 block">($0.0025 / يوم)</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-bold">إجمالي العوائد اليومية المتوقعة:</span>
+                    <span id="lblDailyTeamEarnings" class="text-emerald-400 font-black text-sm">0.00 $ / يوم</span>
+                </div>
+            </div>
+
+            <!-- رتب النجاح والمكافآت المالية المباشرة -->
+            <div class="glass-card p-4 rounded-3xl space-y-3 border border-purple-500/30">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-trophy text-amber-400 ml-1.5"></i> رتب النجاح والمكافآت</h3>
+                    <span id="lblTotalTeamCount" class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-bold">إجمالي الفريق: 0</span>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <!-- رتبة 1: 60 شخص -->
+                    <div id="rankTier1" class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center transition-all">
+                        <div class="flex items-center space-x-2.5 space-x-reverse">
+                            <span class="text-lg">🥉</span>
+                            <div>
+                                <span class="font-bold text-white block">شخص ناجح برونزي</span>
+                                <span class="text-[10px] text-slate-400">مطلوب: 60 شخصاً (المكافأة: 50$)</span>
+                            </div>
+                        </div>
+                        <span id="badgeRank1Status" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">قيد التقدم</span>
+                    </div>
+
+                    <!-- رتبة 2: 120 شخص -->
+                    <div id="rankTier2" class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center transition-all">
+                        <div class="flex items-center space-x-2.5 space-x-reverse">
+                            <span class="text-lg">🥈</span>
+                            <div>
+                                <span class="font-bold text-white block">شخص ناجح فضي</span>
+                                <span class="text-[10px] text-slate-400">مطلوب: 120 شخصاً (المكافأة: 100$)</span>
+                            </div>
+                        </div>
+                        <span id="badgeRank2Status" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">قيد التقدم</span>
+                    </div>
+
+                    <!-- رتبة 3: 240 شخص -->
+                    <div id="rankTier3" class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center transition-all">
+                        <div class="flex items-center space-x-2.5 space-x-reverse">
+                            <span class="text-lg">🥇</span>
+                            <div>
+                                <span class="font-bold text-white block">شخص ناجح ذهبي</span>
+                                <span class="text-[10px] text-slate-400">مطلوب: 240 شخصاً (المكافأة: 200$)</span>
+                            </div>
+                        </div>
+                        <span id="badgeRank3Status" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">قيد التقدم</span>
+                    </div>
+
+                    <!-- رتبة 4: 500 شخص -->
+                    <div id="rankTier4" class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center transition-all">
+                        <div class="flex items-center space-x-2.5 space-x-reverse">
+                            <span class="text-lg">💎</span>
+                            <div>
+                                <span class="font-bold text-white block">شخص متفوق الماسي + مشرف</span>
+                                <span class="text-[10px] text-slate-400">مطلوب: 500 شخص (مكافأة 400$ + صلاحيات مشرف)</span>
+                            </div>
+                        </div>
+                        <span id="badgeRank4Status" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">قيد التقدم</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -800,8 +883,10 @@
                     }
 
                     currentUserTier = data.user.tierCode || 'A1';
-
                     updateWalletData(data.user.wallet);
+
+                    // تحديث بيانات شجرة الفريق والعمولات والـ Ranks إن توفرت في استجابة السيرفر
+                    updateTeamTreeData(data.user.teamStats || { l1: 0, l2: 0, l3: 0, total: 0 });
 
                     let maxTasks = tierLimits[currentUserTier] || 33;
                     document.getElementById('lblMaxTasks').innerText = maxTasks;
@@ -816,6 +901,45 @@
             } catch(err) {
                 console.error(err);
                 logout();
+            }
+        }
+
+        // دالة تحديث واجهة شجرة الفريق والعمولات اليومية ورتب النجاح
+        function updateTeamTreeData(stats) {
+            const l1 = stats.l1 || 0;
+            const l2 = stats.l2 || 0;
+            const l3 = stats.l3 || 0;
+            const total = stats.total || (l1 + l2 + l3);
+
+            document.getElementById('lblTeamL1Count').innerText = `${l1} شخص`;
+            document.getElementById('lblTeamL2Count').innerText = `${l2} شخص`;
+            document.getElementById('lblTeamL3Count').innerText = `${l3} شخص`;
+            document.getElementById('lblTotalTeamCount').innerText = `إجمالي الفريق: ${total}`;
+
+            // احتساب العمولات اليومية الإجمالية بناءً على الشروط:
+            // L1 = $0.01, L2 = $0.005, L3 = $0.0025
+            const dailyEarnings = (l1 * 0.01) + (l2 * 0.005) + (l3 * 0.0025);
+            document.getElementById('lblDailyTeamEarnings').innerText = `${dailyEarnings.toFixed(4)} $ / يوم`;
+
+            // تحديث شائت الرتب وحالتها
+            updateRankStatus(1, total, 60, 'rankTier1', 'badgeRank1Status');
+            updateRankStatus(2, total, 120, 'rankTier2', 'badgeRank2Status');
+            updateRankStatus(3, total, 240, 'rankTier3', 'badgeRank3Status');
+            updateRankStatus(4, total, 500, 'rankTier4', 'badgeRank4Status');
+        }
+
+        function updateRankStatus(rankId, currentTotal, targetCount, cardId, badgeId) {
+            const card = document.getElementById(cardId);
+            const badge = document.getElementById(badgeId);
+
+            if (currentTotal >= targetCount) {
+                card.className = "p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/50 flex justify-between items-center transition-all shadow-lg";
+                badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+                badge.innerHTML = '<i class="fa-solid fa-check ml-1"></i> تم الإنجاز 🎉';
+            } else {
+                card.className = "p-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center transition-all opacity-80";
+                badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
+                badge.innerHTML = `${currentTotal} / ${targetCount}`;
             }
         }
 
@@ -1077,11 +1201,12 @@
 
                 if (res.ok && (data.success || Array.isArray(transactions)) && transactions.length > 0) {
                     listEl.innerHTML = transactions.map(tx => {
-                        const isPositive = tx.type === 'deposit' || tx.type === 'reward';
+                        const isPositive = tx.type === 'deposit' || tx.type === 'reward' || tx.type === 'commission';
                         const typeLabels = {
                             'deposit': 'إيداع رصيد',
                             'withdraw': 'سحب رصيد',
-                            'reward': 'مكافأة / ألعاب'
+                            'reward': 'مكافأة / ألعاب',
+                            'commission': 'عمولة فريق يومية'
                         };
                         const statusBadge = tx.status === 'approved' || tx.status === 'completed'
                             ? '<span class="text-emerald-400 text-[10px] font-bold">مقبول</span>'
