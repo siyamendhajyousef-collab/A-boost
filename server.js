@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname)));
 
 const JWT_SECRET = 'boost_secret_key_2026';
 
-// 1. اتصال قاعدة البيانات مع خيارات منع الـ Timeout
+// 1. الاتصال بقاعدة البيانات
 const MONGO_URI = process.env.MONGO_URI || '';
 
 mongoose.connect(MONGO_URI, {
@@ -55,6 +55,7 @@ const Transaction = mongoose.model('Transaction', transactionSchema);
 
 
 // ==================== 3. موسط الحماية (Middleware) ====================
+
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) return res.status(403).json({ error: 'مطلوب توكن المصادقة' });
@@ -152,9 +153,7 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     if (!user.wallet) {
       user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
@@ -179,36 +178,61 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// مكافآت عجلة الحظ والصناديق المفاجئة
-app.post('/api/rewards/claim', verifyToken, async (req, res) => {
+// 🎡 مسار عجلة الحظ الكبرى
+app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
-    const { amount } = req.body;
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'قيمة الجائزة غير صالحة' });
-    }
-
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const rewardAmount = 5.00; // قيمة الجائزة
 
     if (!user.wallet) {
       user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
     }
 
-    user.wallet.balance += Number(amount);
+    user.wallet.balance += rewardAmount;
     await user.save();
 
     const rewardTransaction = new Transaction({
       userId: user._id,
       type: 'reward',
-      amount: Number(amount),
-      walletAddress: 'Lucky Spin / Mystery Box',
+      amount: rewardAmount,
+      walletAddress: 'Lucky Spin Wheel',
       status: 'approved'
     });
     await rewardTransaction.save();
 
-    res.status(200).json({ success: true, message: 'تمت إضافة المكافأة بنجاح', wallet: user.wallet });
+    res.status(200).json({ success: true, reward: rewardAmount, wallet: user.wallet });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🎁 مسار الصندوق المفاجئ
+app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const rewardAmount = 10.00; // قيمة الجائزة
+
+    if (!user.wallet) {
+      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    }
+
+    user.wallet.balance += rewardAmount;
+    await user.save();
+
+    const rewardTransaction = new Transaction({
+      userId: user._id,
+      type: 'reward',
+      amount: rewardAmount,
+      walletAddress: 'Mystery Box',
+      status: 'approved'
+    });
+    await rewardTransaction.save();
+
+    res.status(200).json({ success: true, reward: rewardAmount, wallet: user.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
@@ -229,13 +253,11 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
     
-    // التحقق من الرصيد سواء كان في assetWallet أو wallet.balance
     const currentBalance = (user.wallet && user.wallet.balance) ? user.wallet.balance : user.assetWallet;
     if (currentBalance < amount) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
-    // الخصم من الرصيد
     if (user.wallet && user.wallet.balance >= amount) {
       user.wallet.balance -= amount;
       user.wallet.totalWithdrawn += Number(amount);
