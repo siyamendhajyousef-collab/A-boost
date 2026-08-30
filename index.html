@@ -68,6 +68,14 @@
                     <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
                     <input type="password" id="loginPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
                 </div>
+                
+                <!-- زر نسيت كلمة المرور -->
+                <div class="flex justify-end pt-1">
+                    <button type="button" onclick="openForgotPasswordModal()" class="text-xs text-amber-400 hover:text-amber-300 font-medium">
+                        نسيت كلمة المرور؟
+                    </button>
+                </div>
+
                 <button type="submit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
             </form>
 
@@ -131,7 +139,7 @@
                 </div>
             </div>
 
-            <!-- ميزة جديدة: مكافأة تسجيل الدخول اليومي (7-Day Check-in Streak) -->
+            <!-- سلسلة الحضور اليومي -->
             <div class="glass-card p-4 rounded-3xl space-y-3 border border-purple-500/30">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-fire text-amber-500 ml-1.5"></i> سلسلة الحضور اليومي</span>
@@ -149,7 +157,7 @@
                 <button onclick="claimDailyStreak()" class="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl shadow active:scale-95 transition-all">مطالبة بمكافأة اليوم (3$)</button>
             </div>
 
-            <!-- ميزة جديدة: شارت الأداء للأسعار والحساب (Live Mini Market Sparkline) -->
+            <!-- شارت الأداء -->
             <div class="glass-card p-4 rounded-3xl space-y-2 border border-slate-800">
                 <div class="flex justify-between items-center text-xs">
                     <span class="font-bold text-white flex items-center"><i class="fa-solid fa-chart-line text-emerald-400 ml-1.5"></i> Ag Growth Index</span>
@@ -168,7 +176,7 @@
                 </div>
             </div>
 
-            <!-- بطاقة العضوية وترقية المستويات مع المكافأة المتضاعفة -->
+            <!-- بطاقة العضوية -->
             <div class="holographic p-5 rounded-3xl relative overflow-hidden shadow-xl space-y-3">
                 <div class="flex justify-between items-center relative z-10">
                     <div>
@@ -294,7 +302,7 @@
             </div>
         </div>
 
-        <!-- واجهة الفريق، الشجرة، والأوسمة مع ميزة لوحة الصدارة -->
+        <!-- واجهة الفريق -->
         <div id="view-team" class="p-4 space-y-4 hide">
             <div class="glass-card p-5 rounded-3xl text-center space-y-3">
                 <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
@@ -306,7 +314,7 @@
                 </div>
             </div>
 
-            <!-- ميزة جديدة: لوحة متصدري المنصة (VIP Leaderboard) -->
+            <!-- متصدرو الأرباح -->
             <div class="glass-card p-5 rounded-3xl space-y-3 border border-amber-500/30">
                 <h3 class="text-sm font-bold text-white flex items-center justify-between">
                     <span><i class="fa-solid fa-trophy text-amber-400 ml-2"></i> متصدرو الأرباح هذا الأسبوع</span>
@@ -360,7 +368,7 @@
             </div>
         </div>
 
-        <!-- واجهة الملف الشخصي مع سجل العمليات -->
+        <!-- واجهة الملف الشخصي -->
         <div id="view-profile" class="p-4 space-y-4 hide">
             <div class="glass-card p-5 rounded-3xl flex items-center space-x-4 space-x-reverse">
                 <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg"><i class="fa-solid fa-user-tie"></i></div>
@@ -370,7 +378,7 @@
                 </div>
             </div>
 
-            <!-- ميزة جديدة: سجل المعاملات والنشاطات الأخيرة (Transaction History) -->
+            <!-- سجل المعاملات -->
             <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
                 <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-list-check text-amber-400 ml-2"></i> سجل المعاملات الأخير</h3>
                 <div class="space-y-2 text-xs">
@@ -447,7 +455,42 @@
 
     </div>
 
-    <!-- نافذة الإيداع وشحن المحفظة -->
+    <!-- نافذة استعادة كلمة المرور المضافة -->
+    <div id="forgotPasswordModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/40 shadow-2xl relative">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-key text-amber-400 ml-2"></i> استعادة حسابك
+                </h3>
+                <button onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- الخطوة 1: طلب الرمز -->
+            <form id="resetRequestForm" onsubmit="handleResetRequest(event)" class="space-y-3">
+                <p class="text-xs text-slate-400">أدخل بريدك الإلكتروني المسجل لإرسال رمز التحقق (OTP):</p>
+                <div>
+                    <input type="email" id="resetEmail" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="name@example.com">
+                </div>
+                <button type="submit" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">إرسال رمز التحقق</button>
+            </form>
+
+            <!-- الخطوة 2: إدخال الرمز وكلمة المرور الجديدة -->
+            <form id="resetConfirmForm" onsubmit="handleResetConfirm(event)" class="space-y-3 hide">
+                <p class="text-xs text-emerald-400 font-bold">تم إرسال الرمز! أدخل الرمز وكلمة المرور الجديدة:</p>
+                <div>
+                    <input type="text" id="resetOtp" required maxlength="6" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-sm font-bold tracking-widest text-amber-400 focus:outline-none focus:border-amber-500" placeholder="1 2 3 4 5 6">
+                </div>
+                <div>
+                    <input type="password" id="resetNewPassword" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="كلمة المرور الجديدة">
+                </div>
+                <button type="submit" class="w-full py-3 purple-gradient text-white font-bold rounded-xl text-xs">تحديث كلمة المرور والدخول</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة الإيداع -->
     <div id="depositModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-emerald-500/40 shadow-2xl relative overflow-hidden">
             <div class="flex justify-between items-center relative z-10">
@@ -512,7 +555,6 @@
         let currentLevel = 1;
         let soundEnabled = true;
 
-        // نظام المؤثرات الصوتية المطورة (Chime / Beep / Upgrade)
         function playBeep(type = 'default') {
             if(!soundEnabled) return;
             try {
@@ -526,8 +568,8 @@
                     osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.2);
                 } else if(type === 'win') {
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-                    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+                    osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
                 } else {
                     osc.type = 'sine';
                     osc.frequency.value = 600;
@@ -550,13 +592,8 @@
             setTimeout(() => toast.classList.add('hide'), 3000);
         }
 
-        function toggleSound(el) {
-            soundEnabled = el.checked;
-        }
-
-        function claimDailyStreak() {
-            showToast('🔥 تمت المطالبة بمكافأة الحضور اليومي (+3.00$) بنجاح!', 'win');
-        }
+        function toggleSound(el) { soundEnabled = el.checked; }
+        function claimDailyStreak() { showToast('🔥 تمت المطالبة بمكافأة الحضور اليومي (+3.00$) بنجاح!', 'win'); }
 
         function switchAuthTab(tab) {
             if(tab === 'login') {
@@ -571,6 +608,64 @@
                 document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             }
         }
+
+        // --- وظائف استعادة كلمة المرور ---
+        function openForgotPasswordModal() {
+            document.getElementById('forgotPasswordModal').classList.remove('hide');
+            document.getElementById('resetRequestForm').classList.remove('hide');
+            document.getElementById('resetConfirmForm').classList.add('hide');
+        }
+
+        function closeForgotPasswordModal() {
+            document.getElementById('forgotPasswordModal').classList.add('hide');
+        }
+
+        async function handleResetRequest(e) {
+            e.preventDefault();
+            const email = document.getElementById('resetEmail').value;
+            try {
+                const res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إرسال رمز التحقق إلى بريدك الإلكتروني', 'win');
+                    document.getElementById('resetRequestForm').classList.add('hide');
+                    document.getElementById('resetConfirmForm').classList.remove('hide');
+                } else {
+                    showToast(data.error || 'البريد الإلكتروني غير مسجل');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال بالخادم');
+            }
+        }
+
+        async function handleResetConfirm(e) {
+            e.preventDefault();
+            const email = document.getElementById('resetEmail').value;
+            const otp = document.getElementById('resetOtp').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+
+            try {
+                const res = await fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, otp, newPassword })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول', 'win');
+                    closeForgotPasswordModal();
+                } else {
+                    showToast(data.error || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال بالخادم');
+            }
+        }
+        // ------------------------------------
 
         async function handleLogin(e) {
             e.preventDefault();
