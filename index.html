@@ -1009,40 +1009,75 @@
             }
         }
 
+        // 📜 جلب وعرض سجل المعاملات المالية المصحح
         async function openHistoryModal() {
             document.getElementById('historyModal').classList.remove('hide');
             const listEl = document.getElementById('historyList');
-            listEl.innerHTML = '<div class="text-center text-slate-500 py-6">جاري تحميل السجل...</div>';
+            listEl.innerHTML = `
+                <div class="text-center py-6 text-gray-400">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2 text-amber-400"></i>
+                    <p class="text-xs">جاري تحميل سجل المعاملات...</p>
+                </div>
+            `;
             
             const token = localStorage.getItem('token');
             try {
-                const res = await fetch('/api/wallet/history', {
+                const res = await fetch('/api/transactions/my-history', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
 
-                if (res.ok && data.transactions && data.transactions.length > 0) {
-                    listEl.innerHTML = data.transactions.map(tx => `
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                            <div>
-                                <span class="font-bold text-white block">${tx.type === 'deposit' ? '🟢 إيداع' : '🔴 سحب'}</span>
-                                <span class="text-[10px] text-slate-400">${new Date(tx.createdAt).toLocaleString('ar-EG')}</span>
+                const transactions = data.transactions || data.history || [];
+
+                if (res.ok && (data.success || Array.isArray(transactions)) && transactions.length > 0) {
+                    listEl.innerHTML = transactions.map(tx => {
+                        const isPositive = tx.type === 'deposit' || tx.type === 'reward';
+                        const typeLabels = {
+                            'deposit': 'إيداع رصيد',
+                            'withdraw': 'سحب رصيد',
+                            'reward': 'مكافأة / ألعاب'
+                        };
+                        const statusBadge = tx.status === 'approved' || tx.status === 'completed'
+                            ? '<span class="text-emerald-400 text-[10px] font-bold">مقبول</span>'
+                            : tx.status === 'rejected'
+                            ? '<span class="text-rose-400 text-[10px] font-bold">مرفوض</span>'
+                            : '<span class="text-amber-400 text-[10px] font-bold">قيد المعالجة</span>';
+
+                        return `
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center mb-2">
+                                <div class="flex items-center space-x-3 space-x-reverse">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center ${isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                                        <i class="fas ${isPositive ? 'fa-arrow-down' : 'fa-arrow-up'} text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <span class="font-bold text-white block text-xs">${typeLabels[tx.type] || tx.type}</span>
+                                        <span class="text-[10px] text-slate-400">${new Date(tx.createdAt).toLocaleString('ar-EG')}</span>
+                                    </div>
+                                </div>
+                                <div class="text-left">
+                                    <span class="font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'} block text-xs">
+                                        ${isPositive ? '+' : '-'}${Number(tx.amount).toFixed(2)}$
+                                    </span>
+                                    ${statusBadge}
+                                </div>
                             </div>
-                            <div class="text-left">
-                                <span class="font-bold ${tx.type === 'deposit' ? 'text-emerald-400' : 'text-amber-400'} block">
-                                    ${tx.type === 'deposit' ? '+' : '-'}${Number(tx.amount).toFixed(2)}$
-                                </span>
-                                <span class="text-[9px] px-2 py-0.5 rounded-full ${tx.status === 'completed' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">
-                                    ${tx.status === 'completed' ? 'مكتمل' : 'قيد المعالجة'}
-                                </span>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
-                    listEl.innerHTML = '<div class="text-center text-slate-500 py-6">لا توجد معاملات سابقة حتى الآن</div>';
+                    listEl.innerHTML = `
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-receipt text-3xl mb-2 opacity-50"></i>
+                            <p class="text-xs">لا توجد معاملات مالية مسجلة بعد</p>
+                        </div>
+                    `;
                 }
             } catch (err) {
-                listEl.innerHTML = '<div class="text-center text-rose-400 py-6">تعذر تحميل سجل المعاملات</div>';
+                listEl.innerHTML = `
+                    <div class="text-center py-6 text-rose-400">
+                        <i class="fas fa-exclamation-circle text-2xl mb-1"></i>
+                        <p class="text-xs">تعذر تحميل سجل المعاملات المالية</p>
+                    </div>
+                `;
             }
         }
 
