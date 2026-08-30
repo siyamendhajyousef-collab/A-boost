@@ -242,6 +242,35 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   }
 });
 
+// 📌 مسار حفظ/تحديث عنوان محفظة السحب (الجديد)
+app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+
+    if (!walletAddress || walletAddress.trim() === '') {
+      return res.status(400).json({ error: 'يرجى إدخال عنوان محفظة صالح' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { walletAddress: walletAddress.trim() },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'تم حفظ عنوان المحفظة بنجاح',
+      walletAddress: updatedUser.walletAddress
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
 // 📝 تسجيل مستخدم جديد
 app.post('/api/auth/register', async (req, res) => {
   try {
