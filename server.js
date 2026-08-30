@@ -45,7 +45,7 @@ const User = mongoose.model('User', userSchema);
 
 const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['deposit', 'withdraw'], required: true },
+  type: { type: String, enum: ['deposit', 'withdraw', 'reward'], required: true },
   amount: { type: Number, required: true },
   walletAddress: { type: String, required: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
@@ -179,7 +179,42 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
-// طلب سحب أسبوعي
+// مكافآت عجلة الحظ والصناديق المفاجئة
+app.post('/api/rewards/claim', verifyToken, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'قيمة الجائزة غير صالحة' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+
+    if (!user.wallet) {
+      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    }
+
+    user.wallet.balance += Number(amount);
+    await user.save();
+
+    const rewardTransaction = new Transaction({
+      userId: user._id,
+      type: 'reward',
+      amount: Number(amount),
+      walletAddress: 'Lucky Spin / Mystery Box',
+      status: 'approved'
+    });
+    await rewardTransaction.save();
+
+    res.status(200).json({ success: true, message: 'تمت إضافة المكافأة بنجاح', wallet: user.wallet });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// طلب سحب رصيد المحفظة
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -193,16 +228,21 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     if (amount > maxLimit) {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
-    if (user.assetWallet < amount) {
+    
+    // التحقق من الرصيد سواء كان في assetWallet أو wallet.balance
+    const currentBalance = (user.wallet && user.wallet.balance) ? user.wallet.balance : user.assetWallet;
+    if (currentBalance < amount) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
-    user.assetWallet -= amount;
-    
-    if (!user.wallet) {
-      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    // الخصم من الرصيد
+    if (user.wallet && user.wallet.balance >= amount) {
+      user.wallet.balance -= amount;
+      user.wallet.totalWithdrawn += Number(amount);
+    } else {
+      user.assetWallet -= amount;
     }
-    user.wallet.totalWithdrawn += Number(amount);
+    
     await user.save();
 
     const withdrawal = new Transaction({
