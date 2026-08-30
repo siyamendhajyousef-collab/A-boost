@@ -4,7 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const { Resend } = require('resend'); // 🔹 استخدام SDK الرسمي لـ Resend
+const { Resend } = require('resend');
 
 const app = express();
 app.use(express.json());
@@ -15,7 +15,7 @@ app.use(express.static(path.join(__dirname)));
 // 🔐 إعدادات المفتاح السري ومتغيرات البيئة
 const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
 
-// 📧 إعداد عميل Resend (ربط عبر API مباشرة عبر HTTP لضمان عدم التعليق)
+// 📧 إعداد عميل Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // 1. الاتصال بقاعدة بيانات MongoDB
@@ -68,26 +68,118 @@ const Transaction = mongoose.model('Transaction', transactionSchema);
 // ==================== 3. موسط الحماية (Middleware) ====================
 
 const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization'];
-  if (!token) return res.status(403).json({ error: 'مطلوب توكن المصادقة' });
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(403).json({ error: 'مطلوب توكن المصادقة' });
+  
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(403).json({ error: 'صيغة التوكن غير صحيحة' });
+
   try {
-    const decoded = jwt.verify(token.split(' ')[1], JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
-    res.status(401).json({ error: 'التوكن غير صالح' });
+    res.status(401).json({ error: 'التوكن غير صالح أو انتهت صلاحيته' });
   }
 };
 
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// تسجيل مستخدم جديد
+// 🤖 مسار المستشار الذكي المربوط بـ Groq API
+app.post('/api/ai/chat', verifyToken, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || message.trim() === '') {
+      return res.status(400).json({ reply: 'يرجى كتابة سؤالك أولاً.' });
+    }
+
+    const user = await User.findById(req.user.id).select('-password');
+    const userName = user ? user.email.split('@')[0] : 'المستخدم';
+    const userBalance = user && user.wallet ? user.wallet.balance : 0;
+    const userTier = user ? user.tierCode : 'A1';
+
+    const cleanMessage = message.trim().toLowerCase();
+
+    // 🛡️ فلتر الكلمات الحساسة
+    const flagKeywords = ['نصب', 'احتيال', 'سرقة', 'وهمي', 'فاشل', 'كذب', 'تزوير', 'حرام'];
+    const isFlagged = flagKeywords.some(word => cleanMessage.includes(word));
+
+    if (isFlagged) {
+      return res.json({
+        reply: `أهلاً بك يا ${userName}! جميع المعاملات في المنصة تشفر وتدار بتبعية عالية لضمان الأمان. نهدف دائماً لتوفير بيئة استثمارية آمنة ومربحة لجميع أعضائنا.`
+      });
+    }
+
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      console.error("⚠️ GROQ_API_KEY is missing in Railway variables!");
+      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً، يرجى المحاولة لاحقاً." });
+    }
+
+    const systemPrompt = `
+أنت "Ag AI Advisor"، المستشار الذكي والداعم الرسمي لمنصة Ag Boost.
+شخصيتك: احترافية، إيجابية جداً، مشجعة، وودودة.
+
+معلومات العميل الحالي:
+- الاسم: ${userName}
+- الرصيد الحالي: ${userBalance}$
+- المستوى الحالي: ${userTier}
+
+قواعد الإجابة الصارمة:
+1. إجاباتك مختصرة جداً (لا تتجاوز 2-3 جمل كحد أقصى).
+2. شجع المستخدم دائماً على إكمال المهام اليومية، الترقية للمستويات الأعلى، ودعوة الأصدقاء لزيادة أرباحه.
+3. تحدث بنبرة إيجابية وواثقة عن أمان المنصة وفرص الأرباح المتاحة.
+4. استخدم اللغة العربية الفصحى البسيطة والودودة.
+`;
+
+    // استخدام fetch المدمج بأمان
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        max_tokens: 150,
+        temperature: 0.6
+      })
+    });
+
+    const data = await groqResponse.json();
+
+    if (data.choices && data.choices[0]?.message?.content) {
+      return res.json({ reply: data.choices[0].message.content.trim() });
+    } else {
+      return res.json({ reply: "أنا هنا لمساعدتك! كيف يمكنني توجيهك اليوم لزيادة أرباحك بالمنصة؟" });
+    }
+
+  } catch (error) {
+    console.error("❌ AI Server Error:", error);
+    return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
+  }
+});
+
+// تسجيل مستخدم جديد مع تفادي تكرار referralCode
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'البريد الإلكتروني مسجل بالفعل' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const referralCode = 'BOOST' + Math.floor(1000 + Math.random() * 9000);
+    const referralCode = 'BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90);
 
     const newUser = new User({ 
       email, 
@@ -121,7 +213,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 🔑 1. طلب رمز استعادة كلمة المرور عبر Resend API
+// طلب رمز استعادة كلمة المرور
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -132,15 +224,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(404).json({ error: 'البريد الإلكتروني غير مسجل لدينا' });
     }
 
-    // توليد رمز OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
     user.resetOTP = otp;
     user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    // الإرسال عبر Resend API Direct (HTTP)
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: 'BOOST Platform <onboarding@resend.dev>',
       to: user.email,
       subject: 'رمز استعادة كلمة المرور - BOOST',
@@ -169,7 +258,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
-// 🔑 2. التحقق من صحة الرمز (Verify OTP)
+// التحقق من صحة الرمز
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -189,7 +278,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
-// 🔑 3. إعادة تعيين كلمة المرور الجديدة (Reset Password)
+// إعادة تعيين كلمة المرور
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -215,7 +304,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// باقي المسارات (Profile, Tasks, Wallet, Spin, Withdraw)...
+// البروفايل
 app.get('/api/user/profile', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -225,6 +314,7 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
+// إكمال المهام وتحديث الأرباح
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -238,16 +328,20 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
     }
 
+    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+
     user.assetWallet += commission;
+    user.wallet.balance += commission; // تحديث رصيد المحفظة الرئيسي أيضاً
     user.todayCompletedTasks += 1;
     await user.save();
 
-    res.status(200).json({ success: true, assetWallet: user.assetWallet, completed: user.todayCompletedTasks });
+    res.status(200).json({ success: true, assetWallet: user.assetWallet, wallet: user.wallet, completed: user.todayCompletedTasks });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
+// الإيداع
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -281,16 +375,14 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
+// عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const rewardAmount = 5.00;
-
-    if (!user.wallet) {
-      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
-    }
+    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
     user.wallet.balance += rewardAmount;
     await user.save();
@@ -310,16 +402,14 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   }
 });
 
+// الصندوق الغامض
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const rewardAmount = 10.00;
-
-    if (!user.wallet) {
-      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
-    }
+    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
     user.wallet.balance += rewardAmount;
     await user.save();
@@ -339,12 +429,13 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
+// السحب
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   try {
     const { amount, walletAddress } = req.body;
-    if (amount < 20) return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
+    if (!amount || amount < 20) return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
 
     const user = await User.findById(req.user.id);
     const maxLimit = maxWithdrawLimits[user.tierCode] || 15;
@@ -353,24 +444,20 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
     
-    const currentBalance = (user.wallet && user.wallet.balance) ? user.wallet.balance : user.assetWallet;
-    if (currentBalance < amount) {
+    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+
+    if (user.wallet.balance < amount) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
-    if (user.wallet && user.wallet.balance >= amount) {
-      user.wallet.balance -= amount;
-      user.wallet.totalWithdrawn += Number(amount);
-    } else {
-      user.assetWallet -= amount;
-    }
-    
+    user.wallet.balance -= Number(amount);
+    user.wallet.totalWithdrawn += Number(amount);
     await user.save();
 
     const withdrawal = new Transaction({
       userId: user._id,
       type: 'withdraw',
-      amount,
+      amount: Number(amount),
       walletAddress,
       status: 'pending'
     });
