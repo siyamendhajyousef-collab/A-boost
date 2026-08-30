@@ -312,9 +312,9 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      model: "openai/gpt-oss-120b",
-      temperature: 1,
-      max_completion_tokens: 1024,
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 512,
       top_p: 1
     });
 
@@ -332,12 +332,13 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 // 🚀 مسار ترقية المستوى
 app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
+    session.startTransaction();
     const { targetTier } = req.body;
     const user = await User.findById(req.user.id).session(session);
     if (!user) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
@@ -349,6 +350,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
       const currentIndex = levelCodes.indexOf(user.tierCode);
       if (currentIndex === -1 || currentIndex === levelCodes.length - 1) {
         await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
       }
       nextTierCode = levelCodes[currentIndex + 1];
@@ -357,11 +359,13 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
     const targetLevelData = levels.find(l => l.code === nextTierCode);
     if (!targetLevelData) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'المستوى المطلوب غير موجود' });
     }
 
     if (user.wallet.balance < targetLevelData.price) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: `رصيد المحفظة غير كافٍ للترقية إلى ${targetLevelData.name}. المبلغ المطلوب: ${targetLevelData.price}$` });
     }
 
@@ -914,8 +918,8 @@ app.get('/api/transactions/my-history', verifyToken, async (req, res) => {
 // 🎡 عجلة الحظ (مع حماية المعاملات ACID)
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
+    session.startTransaction();
     const min = gameSettings.spinMin || 1;
     const max = gameSettings.spinMax || 10;
     const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
@@ -928,6 +932,7 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
 
     if (!updatedUser) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
@@ -954,8 +959,8 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
 // 🎁 الصندوق الغامض (مع حماية المعاملات ACID)
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
+    session.startTransaction();
     const min = gameSettings.boxMin || 5;
     const max = gameSettings.boxMax || 25;
     const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
@@ -968,6 +973,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
 
     if (!updatedUser) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
@@ -994,29 +1000,33 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
 // 💸 طلب السحب
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
+    session.startTransaction();
     const { amount, walletAddress, twoFactorCode } = req.body;
     const withdrawNum = Number(amount);
 
     if (!withdrawNum || withdrawNum < 20) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
     }
 
     if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.trim() === '') {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'يرجى إدخال عنوان المحفظة' });
     }
 
     const user = await User.findById(req.user.id).session(session);
     if (!user) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
     if (!twoFactorCode || user.twoFactorCode !== twoFactorCode || !user.twoFactorExpire || user.twoFactorExpire < Date.now()) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'رمز التحقق الثنائي (2FA) غير صحيح أو انتهت صلاحيته' });
     }
 
@@ -1025,11 +1035,13 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
 
     if (withdrawNum > maxLimit) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
 
     if (user.wallet.balance < withdrawNum) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
@@ -1121,8 +1133,8 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
 
 // ==================== 5. مسارات الإدارة (Admin APIs) ====================
 
-// 🔐 الرابط السري لفتح صفحة الأدمن
-app.get('/my-secret-admin-panel-99', verifyAdmin, (req, res) => {
+// 🔐 صفحة لوحة التحكم الأدمين
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
@@ -1272,17 +1284,19 @@ app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
 // ⚙️ الموافقة أو رفض طلب بـ ACID Transactions
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
+    session.startTransaction();
     const { transactionId, action } = req.body;
     const tx = await Transaction.findById(transactionId).populate('userId').session(session);
     if (!tx) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: 'المعاملة غير موجودة' });
     }
 
     if (tx.status !== 'pending') {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'تمت معالجة هذه المعاملة سابقاً' });
     }
 
@@ -1364,6 +1378,7 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
       }
     } else {
       await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'الإجراء المطلوب غير صالح' });
     }
 
