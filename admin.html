@@ -21,8 +21,21 @@
 
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
 
+    <!-- شريط العرض العلوي للموبايل -->
+    <div class="md:hidden flex items-center justify-between p-4 glass-card border-b border-slate-800 shrink-0">
+        <div class="flex items-center space-x-2 space-x-reverse">
+            <div class="w-8 h-8 gold-gradient rounded-xl flex items-center justify-center font-black text-slate-950 text-sm">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <span class="font-black text-white text-sm">Ag Admin</span>
+        </div>
+        <button onclick="toggleMobileSidebar()" class="text-white text-xl p-2 hover:bg-slate-900 rounded-lg">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+    </div>
+
     <!-- القائمة الجانبية -->
-    <aside class="w-full md:w-64 glass-card border-b md:border-b-0 md:border-l border-slate-800 p-4 flex flex-col justify-between shrink-0">
+    <aside id="sidebar" class="w-full md:w-64 glass-card border-b md:border-b-0 md:border-l border-slate-800 p-4 flex flex-col justify-between shrink-0 hidden md:flex">
         <div class="space-y-6">
             <div class="flex items-center space-x-3 space-x-reverse px-2">
                 <div class="w-10 h-10 gold-gradient rounded-2xl flex items-center justify-center font-black text-slate-950 text-xl shadow-lg">
@@ -30,7 +43,7 @@
                 </div>
                 <div>
                     <h1 class="font-black text-white text-base">Ag Admin</h1>
-                    <span class="text-[10px] text-amber-400 font-bold">لوحة التحكم العليا v3.0</span>
+                    <span class="text-[10px] text-amber-400 font-bold">لوحة التحكم العليا v3.5</span>
                 </div>
             </div>
 
@@ -45,7 +58,11 @@
                 </button>
                 <button onclick="switchAdminTab('withdrawals')" id="btn-tab-withdrawals" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
                     <i class="fa-solid fa-money-bill-transfer text-base"></i>
-                    <span>طلبات السحب والشحن</span>
+                    <span>السحب والإيداع</span>
+                </button>
+                <button onclick="switchAdminTab('plans')" id="btn-tab-plans" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
+                    <i class="fa-solid fa-layer-group text-base"></i>
+                    <span>إدارة المستويات (VIP)</span>
                 </button>
                 <button onclick="switchAdminTab('games')" id="btn-tab-games" class="w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all">
                     <i class="fa-solid fa-dharmachakra text-base"></i>
@@ -128,17 +145,36 @@
                                 <th class="p-4">الإجراءات</th>
                             </tr>
                         </thead>
-                        <tbody id="tblUsersBody" class="divide-y divide-slate-800/50">
-                            <!-- تجلب البيانات من السيرفر تلقائياً -->
-                        </tbody>
+                        <tbody id="tblUsersBody" class="divide-y divide-slate-800/50"></tbody>
                     </table>
+                </div>
+                <!-- Pagination -->
+                <div class="flex justify-between items-center p-4 border-t border-slate-800 text-xs text-slate-400">
+                    <button onclick="changeUsersPage(-1)" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg">السابق</button>
+                    <span>صفحة <span id="usersCurrentPage">1</span> من <span id="usersTotalPages">1</span></span>
+                    <button onclick="changeUsersPage(1)" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg">التالي</button>
                 </div>
             </div>
         </div>
 
         <!-- تبويب: طلبات السحب والشحن -->
         <div id="admin-withdrawals" class="space-y-6 hide">
-            <h2 class="text-xl font-black text-white">طلبات المعاملات المالية Pending</h2>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 class="text-xl font-black text-white">إدارة المعاملات المالية</h2>
+                <div class="flex items-center space-x-2 space-x-reverse w-full sm:w-auto">
+                    <select id="filterTxType" onchange="fetchTransactionsList()" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                        <option value="all">جميع أنواع المعاملات</option>
+                        <option value="withdraw">سحب</option>
+                        <option value="deposit">شحن/إيداع</option>
+                    </select>
+                    <select id="filterTxStatus" onchange="fetchTransactionsList()" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                        <option value="pending">المعلقة فقط</option>
+                        <option value="approved">المقبولة</option>
+                        <option value="rejected">المرفوضة</option>
+                        <option value="all">جميع الحالات</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
                 <div class="overflow-x-auto">
@@ -148,16 +184,28 @@
                                 <th class="p-4">المستخدم</th>
                                 <th class="p-4">النوع</th>
                                 <th class="p-4">المبلغ</th>
-                                <th class="p-4">تفاصيل المحفظة</th>
+                                <th class="p-4">تفاصيل المحفظة / الهاش</th>
                                 <th class="p-4">الحالة</th>
                                 <th class="p-4">القرار</th>
                             </tr>
                         </thead>
-                        <tbody id="tblTransactionsBody" class="divide-y divide-slate-800/50">
-                            <!-- الطلبات المعلقة تجلب تلقائياً -->
-                        </tbody>
+                        <tbody id="tblTransactionsBody" class="divide-y divide-slate-800/50"></tbody>
                     </table>
                 </div>
+                <!-- Pagination -->
+                <div class="flex justify-between items-center p-4 border-t border-slate-800 text-xs text-slate-400">
+                    <button onclick="changeTxPage(-1)" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg">السابق</button>
+                    <span>صفحة <span id="txCurrentPage">1</span> من <span id="txTotalPages">1</span></span>
+                    <button onclick="changeTxPage(1)" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg">التالي</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- تبويب: إدارة المستويات VIP -->
+        <div id="admin-plans" class="space-y-6 hide">
+            <h2 class="text-xl font-black text-white">تعديل شروط ومكافآت المستويات (VIP Tiers)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="plansContainer">
+                <!-- يتم التوليد التلقائي لبطاقات التعديل -->
             </div>
         </div>
 
@@ -217,34 +265,54 @@
 
     </main>
 
-    <!-- نافذة تعديل رصيد ومستوى مستخدم -->
+    <!-- نافذة تعديل حساب المستخدم الموسعة -->
     <div id="editUserModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
-        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-md space-y-4 border border-amber-500/30">
             <div class="flex justify-between items-center">
-                <h3 class="text-base font-bold text-white">تعديل بيانات المستخدم</h3>
+                <h3 class="text-base font-bold text-white">إدارة الحساب الشاملة</h3>
                 <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <input type="hidden" id="editUserId">
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">المستوى الحالي</label>
-                <select id="editUserTier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
-                    <option value="A1">A1</option>
-                    <option value="A2">A2</option>
-                    <option value="A3">A3</option>
-                    <option value="A4">A4</option>
-                    <option value="A5">A5</option>
-                </select>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">المستوى الحالي</label>
+                    <select id="editUserTier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                        <option value="A1">A1</option>
+                        <option value="A2">A2</option>
+                        <option value="A3">A3</option>
+                        <option value="A4">A4</option>
+                        <option value="A5">A5</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">رصيد المحفظة ($)</label>
+                    <input type="number" id="editUserBalance" step="0.01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                </div>
             </div>
             <div>
-                <label class="block text-xs text-slate-400 mb-1">رصيد المحفظة ($)</label>
-                <input type="number" id="editUserBalance" step="0.01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                <label class="block text-xs text-slate-400 mb-1">كلمة المرور الجديدة (أتركها فارغة للتبقاء)</label>
+                <input type="password" id="editUserPass" placeholder="إعادة تعيين كلمة مرور الدخول" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
             </div>
-            <button onclick="submitEditUser()" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تحديث البيانات</button>
+            <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                <button onclick="resetFundPassword()" type="button" class="text-xs text-amber-400 hover:underline">إعادة ضبط رمز السحب (0000)</button>
+                <button onclick="viewUserReferrals()" type="button" class="text-xs text-blue-400 hover:underline">عرض شجرة الإحالات</button>
+            </div>
+            <button onclick="submitEditUser()" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تحديث وحفظ</button>
         </div>
     </div>
 
     <script>
         let allUsersData = [];
+        let usersCurrentPage = 1;
+        let usersTotalPages = 1;
+
+        let txCurrentPage = 1;
+        let txTotalPages = 1;
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('hidden');
+        }
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -254,17 +322,22 @@
         }
 
         function switchAdminTab(tab) {
-            ['overview', 'users', 'withdrawals', 'games', 'broadcast'].forEach(t => {
-                document.getElementById(`admin-${t}`).classList.add('hide');
+            ['overview', 'users', 'withdrawals', 'plans', 'games', 'broadcast'].forEach(t => {
+                const el = document.getElementById(`admin-${t}`);
+                if (el) el.classList.add('hide');
                 const btn = document.getElementById(`btn-tab-${t}`);
-                if(btn) btn.className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all";
+                if (btn) btn.className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white transition-all";
             });
             document.getElementById(`admin-${tab}`).classList.remove('hide');
-            document.getElementById(`btn-tab-${tab}`).className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
+            const activeBtn = document.getElementById(`btn-tab-${tab}`);
+            if (activeBtn) activeBtn.className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
+
+            if (window.innerWidth < 768) document.getElementById('sidebar').classList.add('hidden');
 
             if(tab === 'overview') fetchAdminOverview();
             if(tab === 'users') fetchUsersList();
             if(tab === 'withdrawals') fetchTransactionsList();
+            if(tab === 'plans') renderPlansTab();
             if(tab === 'games') fetchGameSettings();
         }
 
@@ -287,28 +360,36 @@
                     document.getElementById('statTotalWithdrawals').innerText = (Number(stats.totalWithdrawals) || 0).toFixed(2) + ' $';
                     document.getElementById('statPendingRequests').innerText = stats.pendingWithdrawals || 0;
                 }
-            } catch(e) {
-                console.error('خطأ الإحصائيات:', e);
-            }
+            } catch(e) { console.error('خطأ الإحصائيات:', e); }
         }
 
-        async function fetchUsersList() {
+        async function fetchUsersList(page = 1) {
             const token = localStorage.getItem('token');
             if (!token) return adminLogout();
 
             try {
-                const res = await fetch('/api/admin/users', {
+                const res = await fetch(`/api/admin/users?page=${page}&limit=10`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (res.status === 401 || res.status === 403) return adminLogout();
 
-                const users = await res.json();
-                if(res.ok && Array.isArray(users)) {
+                const data = await res.json();
+                if(res.ok) {
+                    const users = Array.isArray(data) ? data : data.users || [];
                     allUsersData = users;
+                    usersCurrentPage = data.page || 1;
+                    usersTotalPages = data.totalPages || 1;
+                    document.getElementById('usersCurrentPage').innerText = usersCurrentPage;
+                    document.getElementById('usersTotalPages').innerText = usersTotalPages;
                     renderUsersTable(users);
                 }
             } catch(e) { console.error(e); }
+        }
+
+        function changeUsersPage(delta) {
+            const target = usersCurrentPage + delta;
+            if(target >= 1 && target <= usersTotalPages) fetchUsersList(target);
         }
 
         function renderUsersTable(users) {
@@ -335,7 +416,7 @@
                         <td class="p-4">${statusBadge}</td>
                         <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
                         <td class="p-4 space-x-2 space-x-reverse">
-                            <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition-all">تعديل</button>
+                            <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition-all">إدارة</button>
                             ${banBtn}
                         </td>
                     </tr>
@@ -363,19 +444,22 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     showToast(data.message);
-                    fetchUsersList();
+                    fetchUsersList(usersCurrentPage);
                 } else {
                     showToast(data.error || 'حدث خطأ في تنفيذ العملية');
                 }
             } catch (e) { showToast('خطأ في الاتصال بالخادم'); }
         }
 
-        async function fetchTransactionsList() {
+        async function fetchTransactionsList(page = 1) {
             const token = localStorage.getItem('token');
             if (!token) return adminLogout();
 
+            const status = document.getElementById('filterTxStatus').value;
+            const type = document.getElementById('filterTxType').value;
+
             try {
-                const res = await fetch('/api/admin/withdrawals', {
+                const res = await fetch(`/api/admin/withdrawals?status=${status}&type=${type}&page=${page}&limit=10`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -383,9 +467,14 @@
 
                 const data = await res.json();
                 if (res.ok && data.success) {
+                    txCurrentPage = data.page || 1;
+                    txTotalPages = data.totalPages || 1;
+                    document.getElementById('txCurrentPage').innerText = txCurrentPage;
+                    document.getElementById('txTotalPages').innerText = txTotalPages;
+
                     const tbody = document.getElementById('tblTransactionsBody');
                     if (!data.withdrawals || data.withdrawals.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد طلبات سحب حالياً</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد طلبات مطابقة</td></tr>`;
                         return;
                     }
                     tbody.innerHTML = data.withdrawals.map(tx => {
@@ -402,10 +491,10 @@
 
                         return `
                             <tr>
-                                <td class="p-4 font-bold text-white">${tx.userId ? tx.userId.email : 'مستخدم غير معروف'}</td>
-                                <td class="p-4 font-semibold text-slate-300">${tx.type === 'withdraw' ? 'سحب رصيد' : tx.type}</td>
+                                <td class="p-4 font-bold text-white">${tx.userId ? tx.userId.email : 'غير معروف'}</td>
+                                <td class="p-4 font-semibold text-slate-300">${tx.type === 'withdraw' ? 'سحب رصيد' : 'شحن/إيداع'}</td>
                                 <td class="p-4 text-amber-400 font-mono font-bold">${Number(tx.amount || 0).toFixed(2)} $</td>
-                                <td class="p-4 text-slate-300 font-mono text-[11px] select-all">${tx.walletAddress || 'غير محدد'}</td>
+                                <td class="p-4 text-slate-300 font-mono text-[11px] select-all">${tx.walletAddress || tx.hash || 'غير محدد'}</td>
                                 <td class="p-4">${statusBadge}</td>
                                 <td class="p-4 space-x-1 space-x-reverse">${actionButtons}</td>
                             </tr>
@@ -413,6 +502,11 @@
                     }).join('');
                 }
             } catch (e) { console.error('خطأ المعاملات:', e); }
+        }
+
+        function changeTxPage(delta) {
+            const target = txCurrentPage + delta;
+            if(target >= 1 && target <= txTotalPages) fetchTransactionsList(target);
         }
 
         async function handleWithdrawalAction(transactionId, action) {
@@ -429,7 +523,7 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     showToast(data.message || 'تم اتخاذ الإجراء بنجاح');
-                    fetchTransactionsList();
+                    fetchTransactionsList(txCurrentPage);
                     fetchAdminOverview();
                 } else {
                     showToast(data.error || 'حدث خطأ في معالجة الطلب');
@@ -441,6 +535,7 @@
             document.getElementById('editUserId').value = id;
             document.getElementById('editUserTier').value = tier;
             document.getElementById('editUserBalance').value = balance;
+            document.getElementById('editUserPass').value = '';
             document.getElementById('editUserModal').classList.remove('hide');
         }
 
@@ -453,22 +548,61 @@
             const userId = document.getElementById('editUserId').value;
             const tierCode = document.getElementById('editUserTier').value;
             const balance = parseFloat(document.getElementById('editUserBalance').value);
+            const password = document.getElementById('editUserPass').value;
 
             try {
                 const res = await fetch('/api/admin/users/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ userId, tierCode, balance })
+                    body: JSON.stringify({ userId, tierCode, balance, password })
                 });
                 if(res.ok) {
                     showToast('تم تحديث بيانات المستخدم بنجاح');
                     closeEditUserModal();
-                    fetchUsersList();
+                    fetchUsersList(usersCurrentPage);
                     fetchAdminOverview();
                 } else {
                     showToast('حدث خطأ أثناء التحديث');
                 }
             } catch(e) { showToast('خطأ في الاتصال'); }
+        }
+
+        async function resetFundPassword() {
+            const userId = document.getElementById('editUserId').value;
+            if(!confirm("تعيين رمز السحب إلى 0000؟")) return;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/users/reset-fund-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId })
+                });
+                if(res.ok) showToast('تمت إعادة ضبط رمز السحب لـ 0000 بنجاح');
+            } catch(e) { showToast('خطأ بالاتصال'); }
+        }
+
+        function viewUserReferrals() {
+            const userId = document.getElementById('editUserId').value;
+            alert("طلب عرض شجرة الإحالات للمستخدم: " + userId);
+        }
+
+        function renderPlansTab() {
+            const container = document.getElementById('plansContainer');
+            const tiers = ['A1', 'A2', 'A3', 'A4', 'A5'];
+            container.innerHTML = tiers.map(t => `
+                <div class="glass-card p-5 rounded-3xl border border-slate-800 space-y-3">
+                    <h3 class="font-bold text-amber-400 text-sm">مستوى ${t}</h3>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">سعر الاشتراك ($)</label>
+                        <input type="number" value="50" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">الربح اليومي ($)</label>
+                        <input type="number" value="2.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <button onclick="showToast('تم تحديث خطة ${t}')" class="w-full py-2 bg-amber-500/20 text-amber-400 hover:bg-amber-500 text-xs font-bold rounded-xl transition-all">تحديث الخطة</button>
+                </div>
+            `).join('');
         }
 
         async function fetchGameSettings() {
