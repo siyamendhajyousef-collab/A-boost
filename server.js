@@ -34,10 +34,7 @@ if (!MONGO_URI) {
   console.error('⚠️ تحذير: لم يتم العثور على MONGO_URI في متغيرات البيئة!');
 }
 
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-})
+mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
     
@@ -70,7 +67,7 @@ const userSchema = new mongoose.Schema({
   referralCode: { type: String, unique: true },
   referredBy: { type: String, default: null },
   walletAddress: { type: String, default: '' },
-  isBanned: { type: Boolean, default: false }, // 👈 حقل الحظر
+  isBanned: { type: Boolean, default: false },
   wallet: {
     balance: { type: Number, default: 0 },
     totalDeposits: { type: Number, default: 0 },
@@ -105,7 +102,6 @@ const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     
-    // التحقق الفوري من حالة الحظر قبل السماح بمرور أي طلب
     const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
     if (user.isBanned) return res.status(403).json({ error: 'تم تعليق حسابك من قبل الإدارة. يرجى التواصل مع الدعم الفني.' });
@@ -117,7 +113,6 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// 🛡️ موسط حماية الأدمن (Admin Protection)
 const verifyAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -229,10 +224,19 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
     }
 
-    user.tierCode = tiers[currentIndex + 1];
-    await user.save();
+    const nextTier = tiers[currentIndex + 1];
 
-    res.status(200).json({ success: true, message: 'تمت الترقية بنجاح', tierCode: user.tierCode });
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.user.id, tierCode: user.tierCode },
+      { $set: { tierCode: nextTier } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(400).json({ error: 'حدثت تغييرات في الجلسة، يرجى المحاولة مرة أخرى' });
+    }
+
+    res.status(200).json({ success: true, message: 'تمت الترقية بنجاح', tierCode: updatedUser.tierCode });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
@@ -405,12 +409,8 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
     const maxTasks = tierLimits[user.tierCode] || 33;
     const commission = tierCommissions[user.tierCode] || 0.0346;
 
-    if (user.todayCompletedTasks >= maxTasks) {
-      return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.user.id, todayCompletedTasks: { $lt: maxTasks } },
       {
         $inc: {
           assetWallet: commission,
@@ -420,6 +420,10 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
       },
       { new: true }
     ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
+    }
 
     res.status(200).json({ 
       success: true, 
@@ -554,13 +558,9 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
 
-    const currentBalance = user.wallet ? user.wallet.balance : 0;
-    if (currentBalance < withdrawNum) {
-      return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
+    // خصم الرصيد في العمليات التزامنية لمنع السحب المزدوج
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.user.id, 'wallet.balance': { $gte: withdrawNum } },
       {
         $inc: {
           'wallet.balance': -withdrawNum,
@@ -569,6 +569,10 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       },
       { new: true }
     );
+
+    if (!updatedUser) {
+      return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
+    }
 
     const withdrawal = new Transaction({
       userId: updatedUser._id,
@@ -686,13 +690,20 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     const tx = await Transaction.findById(transactionId);
     if (!tx) return res.status(404).json({ error: 'المعاملة غير موجودة' });
 
+    if (tx.status !== 'pending') {
+      return res.status(400).json({ error: 'تمت معالجة هذه المعاملة سابقاً' });
+    }
+
     if (action === 'approve') {
       tx.status = 'approved';
     } else if (action === 'reject') {
       tx.status = 'rejected';
+      // إرجاع المبلغ لـ balance المحفظة عند الرفض
       await User.findByIdAndUpdate(tx.userId, {
         $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
       });
+    } else {
+      return res.status(400).json({ error: 'الإجراء المطلوب غير صالح' });
     }
 
     await tx.save();
