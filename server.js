@@ -111,10 +111,11 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
       });
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
+    // دعم قراءة المفتاح باسم GROQ_API_KEY أو Boostai لتفادي أي أخطاء
+    const apiKey = process.env.GROQ_API_KEY || process.env.Boostai;
     if (!apiKey) {
-      console.error("⚠️ GROQ_API_KEY is missing in Railway variables!");
-      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً، يرجى المحاولة لاحقاً." });
+      console.error("⚠️ GROQ_API_KEY/Boostai is missing in Railway variables!");
+      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً، يرجى إضافة مفتاح GROQ_API_KEY في متغيرات البيئة." });
     }
 
     const systemPrompt = `
@@ -127,13 +128,12 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 - المستوى الحالي: ${userTier}
 
 قواعد الإجابة الصارمة:
-1. إجاباتك مختصرة جداً (لا تتجاوز 2-3 جمل كحد أقصى).
-2. شجع المستخدم دائماً على إكمال المهام اليومية، الترقية للمستويات الأعلى، ودعوة الأصدقاء لزيادة أرباحه.
-3. تحدث بنبرة إيجابية وواثقة عن أمان المنصة وفرص الأرباح المتاحة.
-4. استخدم اللغة العربية الفصحى البسيطة والودودة.
+1. أجب بشكل مباشر وديناميكي على سؤال المستخدم المحدد دون تكرار عبارات ترحيبية ثابتة.
+2. اجعل الإجابة مختصرة ومفيدة (لا تتجاوز 2-3 جمل).
+3. شجع المستخدم على إكمال المهام اليومية، الترقية للمستويات الأعلى، ودعوة الأصدقاء لزيادة أرباحه.
+4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // استخدام fetch المدمج بأمان
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -141,13 +141,13 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ],
-        max_tokens: 150,
-        temperature: 0.6
+        max_tokens: 200,
+        temperature: 0.7
       })
     });
 
@@ -156,12 +156,35 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
     if (data.choices && data.choices[0]?.message?.content) {
       return res.json({ reply: data.choices[0].message.content.trim() });
     } else {
-      return res.json({ reply: "أنا هنا لمساعدتك! كيف يمكنني توجيهك اليوم لزيادة أرباحك بالمنصة؟" });
+      console.error("Groq Response Error:", data);
+      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد مفصّل حالياً، حاول مرة أخرى." });
     }
 
   } catch (error) {
     console.error("❌ AI Server Error:", error);
     return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
+  }
+});
+
+// 🚀 مسار ترقية المستوى (Upgrade Tier)
+app.post('/api/user/upgrade', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const tiers = ['A1', 'A2', 'A3', 'A4', 'A5'];
+    const currentIndex = tiers.indexOf(user.tierCode);
+
+    if (currentIndex === -1 || currentIndex === tiers.length - 1) {
+      return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
+    }
+
+    user.tierCode = tiers[currentIndex + 1];
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'تمت الترقية بنجاح', tierCode: user.tierCode });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
