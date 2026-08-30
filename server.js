@@ -34,27 +34,6 @@ if (!MONGO_URI) {
   console.error('⚠️ تحذير: لم يتم العثور على MONGO_URI في متغيرات البيئة!');
 }
 
-mongoose.connect(MONGO_URI)
-  .then(async () => {
-    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
-    
-    // 👑 تحويل حسابك الشخصي تلقائياً إلى الأدمن الرئيسي
-    try {
-      const adminUser = await User.findOneAndUpdate(
-        { email: 'asspetmax@gmail.com' },
-        { role: 'admin' },
-        { new: true }
-      );
-      if (adminUser) {
-        console.log('👑 تم التأكد من صلاحيات الأدمن للحساب: asspetmax@gmail.com');
-      }
-    } catch (err) {
-      console.error('⚠️ خطأ في تحديث صلاحية الأدمن:', err.message);
-    }
-  })
-  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات MongoDB:', err));
-
-
 // ==================== 2. نماذج قاعدة البيانات (Models) ====================
 
 const userSchema = new mongoose.Schema({
@@ -88,6 +67,26 @@ const transactionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
+
+mongoose.connect(MONGO_URI)
+  .then(async () => {
+    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
+    
+    // 👑 تحويل حسابك الشخصي تلقائياً إلى الأدمن الرئيسي
+    try {
+      const adminUser = await User.findOneAndUpdate(
+        { email: 'asspetmax@gmail.com' },
+        { role: 'admin' },
+        { new: true }
+      );
+      if (adminUser) {
+        console.log('👑 تم التأكد من صلاحيات الأدمن للحساب: asspetmax@gmail.com');
+      }
+    } catch (err) {
+      console.error('⚠️ خطأ في تحديث صلاحية الأدمن:', err.message);
+    }
+  })
+  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات MongoDB:', err));
 
 
 // ==================== 3. موسط الحماية (Middleware) ====================
