@@ -3,224 +3,436 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A-boost - منصة المهام والأرباح</title>
+    <title>Ag Boost - منصة الأعمال الذكية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
-        body { background-color: #0d1117; color: #c9d1d9; direction: rtl; padding: 20px; }
-        .container { max-width: 450px; margin: 30px auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        h2 { text-align: center; color: #58a6ff; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-size: 14px; }
-        input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #fff; }
-        button { width: 100%; padding: 11px; background: #238636; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button:hover { background: #2ea043; }
-        .hidden { display: none; }
-        .card { background: #21262d; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .logout-btn { background: #da3633; margin-top: 20px; }
-        .logout-btn:hover { background: #f85149; }
-        .msg { text-align: center; margin-top: 10px; font-size: 13px; }
-        .toggle-link { text-align: center; margin-top: 15px; font-size: 14px; color: #58a6ff; cursor: pointer; }
-        .toggle-link:hover { text-decoration: underline; }
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        .glass-card { background: rgba(25, 33, 54, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .purple-gradient { background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); }
+        .hide { display: none !important; }
     </style>
 </head>
-<body>
+<body class="pb-24 max-w-md mx-auto min-h-screen relative shadow-2xl overflow-x-hidden">
 
-<div class="container">
-    <!-- قسم تسجيل الدخول -->
-    <div id="login-section">
-        <h2>تسجيل الدخول إلى A-boost</h2>
-        <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="login-email" placeholder="name@example.com">
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
+
+    <!-- ================= AUTH SECTION ================= -->
+    <div id="authView" class="p-6 mt-10">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl shadow-purple-900/40 mb-4">
+                <i class="fa-solid fa-plane-up text-3xl text-white"></i>
+            </div>
+            <h1 class="text-2xl font-black text-white">Ag Boost Global</h1>
+            <p class="text-slate-400 text-sm mt-1">بوابة العمل الرقمي الموثوقة</p>
         </div>
-        <div class="form-group">
-            <label>كلمة المرور</label>
-            <input type="password" id="login-password" placeholder="********">
+
+        <div class="glass-card p-6 rounded-3xl shadow-xl">
+            <!-- Tabs Switcher -->
+            <div class="flex bg-slate-800/80 p-1 rounded-2xl mb-6">
+                <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all">تسجيل الدخول</button>
+                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all">حساب جديد</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
+                    <input type="email5" id="loginEmail" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
+                    <input type="password" id="loginPassword" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hide">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
+                    <input type="email" id="regEmail" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
+                    <input type="password" id="regPassword" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">إنشاء حساب جديد</button>
+            </form>
         </div>
-        <button onclick="login()">دخول</button>
-        <p id="login-msg" class="msg" style="color: #f85149;"></p>
-        <p class="toggle-link" onclick="toggleAuth(true)">ليس لديك حساب؟ أنشئ حساباً جديداً</p>
     </div>
 
-    <!-- قسم إنشاء حساب جديد -->
-    <div id="register-section" class="hidden">
-        <h2>إنشاء حساب جديد</h2>
-        <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="reg-email" placeholder="name@example.com">
+    <!-- ================= MAIN APP SECTION ================= -->
+    <div id="appView" class="hide">
+
+        <!-- 1. HOME TAB -->
+        <div id="view-home" class="p-4 space-y-4">
+            <!-- Top Header Banner -->
+            <div class="glass-card p-4 rounded-3xl flex items-center justify-between">
+                <div class="flex items-center space-x-3 space-x-reverse">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-purple-600 flex items-center justify-center font-black text-xl shadow-md">AG</div>
+                    <div>
+                        <h2 id="lblUserEmail" class="text-sm font-bold text-white truncate max-w-[180px]">user@domain.com</h2>
+                        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 mt-1 border border-amber-500/30">موظف معتمد • مستوى A1</span>
+                    </div>
+                </div>
+                <button onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 hover:bg-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+
+            <!-- Quick Action Grid -->
+            <div class="grid grid-cols-4 gap-3 text-center">
+                <div onclick="openWithdrawModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-2"><i class="fa-solid fa-wallet text-lg"></i></div>
+                    <span class="text-xs font-medium text-slate-300">انسحاب</span>
+                </div>
+                <div onclick="showToast('تم تفعيل خاصية الإيداع الفوري')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2"><i class="fa-solid fa-money-bill-transfer text-lg"></i></div>
+                    <span class="text-xs font-medium text-slate-300">إعادة تعبئة</span>
+                </div>
+                <div onclick="showToast('شارك رابط إحالتك واكسب أرباح مضاعفة')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-2"><i class="fa-solid fa-user-plus text-lg"></i></div>
+                    <span class="text-xs font-medium text-slate-300">دعوة أصدقاء</span>
+                </div>
+                <div onclick="switchTab('income')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-2"><i class="fa-solid fa-chart-pie text-lg"></i></div>
+                    <span class="text-xs font-medium text-slate-300">الصندوق</span>
+                </div>
+            </div>
+
+            <!-- Ticker Announcement -->
+            <div class="glass-card px-4 py-3 rounded-2xl flex items-center space-x-3 space-x-reverse bg-amber-500/5 border-amber-500/20">
+                <i class="fa-solid fa-bullhorn text-amber-400 animate-pulse"></i>
+                <p class="text-xs text-slate-300 truncate">تهانينا للمشارك A1 بإتمام مهام اليوم بنجاح وعائدات مالية فورية.</p>
+            </div>
+
+            <!-- Featured Promo Banner -->
+            <div class="relative rounded-3xl overflow-hidden glass-card p-5 border border-purple-500/30 bg-gradient-to-br from-purple-900/40 to-slate-900/80">
+                <div class="relative z-10">
+                    <span class="text-[10px] bg-purple-500/30 text-purple-300 px-2.5 py-1 rounded-full font-bold">حملة السفر الكبرى 2026</span>
+                    <h3 class="text-lg font-bold text-white mt-2">عزز دخلك اليومي مع مهام السفر المباشرة</h3>
+                    <p class="text-xs text-slate-400 mt-1">أنجز مهامك اليومية بدقة واحصل على عوائد مباشرة في محفظتك الرقمية.</p>
+                    <button onclick="switchTab('travel')" class="mt-4 px-4 py-2 gold-gradient text-slate-950 font-bold text-xs rounded-xl shadow-lg">ابدأ المهام الآن</button>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>كلمة المرور</label>
-            <input type="password" id="reg-password" placeholder="********">
+
+        <!-- 2. TRAVEL / TASKS TAB -->
+        <div id="view-travel" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl text-center space-y-3">
+                <span class="text-xs text-amber-400 font-bold"><i class="fa-solid fa-plane-departure ml-1"></i> مهمة السفر اليومية</span>
+                <h2 class="text-xl font-extrabold text-white">رحلة العمل الميداني الرقمي</h2>
+                <div class="w-full bg-slate-800 rounded-full h-4 overflow-hidden p-0.5 border border-slate-700 mt-3">
+                    <div id="taskProgressBar" class="gold-gradient h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-xs text-slate-400 px-1">
+                    <span>المنجز: <strong id="lblCompletedTasks" class="text-amber-400">0</strong> / 33</span>
+                    <span>الرصيد الحالي: <strong id="lblWalletBalance" class="text-emerald-400">0.00$</strong></span>
+                </div>
+                <button onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all text-sm mt-3">
+                    <i class="fa-solid fa-bolt ml-2"></i> إنجاز مهمة جديدة
+                </button>
+            </div>
         </div>
-        <button onclick="register()" style="background: #1f6feb;">تسجيل الحساب</button>
-        <p id="reg-msg" class="msg" style="color: #f85149;"></p>
-        <p class="toggle-link" onclick="toggleAuth(false)">لديك حساب بالفعل؟ سجل دخولك</p>
+
+        <!-- 3. INCOME / TIERS TAB -->
+        <div id="view-income" class="p-4 space-y-4 hide">
+            <div class="text-center mb-2">
+                <h2 class="text-lg font-bold text-white">جدول مستويات الدخل والأرباح</h2>
+                <p class="text-xs text-slate-400">عوائد الموظفين بدوام جزئي في Ag Boost</p>
+            </div>
+            <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
+                <table class="w-full text-center text-xs">
+                    <thead class="bg-slate-800 text-slate-300 font-bold">
+                        <tr>
+                            <py class="py-3 px-2">الدرجة</py>
+                            <th class="py-3 px-2">إيداع</th>
+                            <th class="py-3 px-2">المهام</th>
+                            <th class="py-3 px-2">اليومي</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                        <tr><td class="py-3 font-bold text-amber-400">A1</td><td>15$</td><td>33</td><td>1.14$</td></tr>
+                        <tr><td class="py-3 font-bold text-amber-400">A2</td><td>35$</td><td>35</td><td>2.64$</td></tr>
+                        <tr><td class="py-3 font-bold text-amber-400">A3</td><td>80$</td><td>40</td><td>6.07$</td></tr>
+                        <tr><td class="py-3 font-bold text-amber-400">A4</td><td>200$</td><td>45</td><td>15.00$</td></tr>
+                        <tr><td class="py-3 font-bold text-amber-400">A5</td><td>500$</td><td>50</td><td>37.85$</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. TEAM TAB -->
+        <div id="view-team" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl text-center space-y-3">
+                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl font-black text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
+                <h2 class="text-lg font-bold text-white">إدارة الفريق والإحالات</h2>
+                <p class="text-xs text-slate-400">قم بدعوة زملائك واكسب نسب أرباح تصاعدية ضخمة.</p>
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 flex items-center justify-between mt-2">
+                    <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
+                    <button onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرمز</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. PROFILE TAB -->
+        <div id="view-profile" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl flex items-center space-x-4 space-x-reverse">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg"><i class="fa-solid fa-user-tie"></i></div>
+                <div>
+                    <h3 id="lblProfileEmail" class="text-sm font-bold text-white">user@domain.com</h3>
+                    <p class="text-xs text-slate-400 mt-1">حساب موظف معتمد ومفعل رسمياً</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-card p-4 rounded-2xl">
+                    <span class="text-xs text-slate-400 block">رصيد المحفظة</span>
+                    <h4 id="lblProfileWallet" class="text-xl font-black text-amber-400 mt-1">0.00$</h4>
+                </div>
+                <div class="glass-card p-4 rounded-2xl">
+                    <span class="text-xs text-slate-400 block">أرباح اليوم</span>
+                    <h4 class="text-xl font-black text-emerald-400 mt-1">0.00$</h4>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-3xl space-y-3">
+                <div onclick="openWithdrawModal()" class="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 cursor-pointer hover:bg-slate-800 transition-all">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <i class="fa-solid fa-wallet text-amber-400"></i>
+                        <span class="text-xs font-bold text-white">طلب سحب الأرباح</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-xs text-slate-500"></i>
+                </div>
+                <div onclick="logout()" class="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 cursor-pointer hover:bg-rose-500/20 transition-all border border-rose-500/20">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <i class="fa-solid fa-right-from-bracket text-rose-400"></i>
+                        <span class="text-xs font-bold text-rose-400">تسجيل الخروج</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-xs text-rose-500"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION BAR -->
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-4 py-2 flex justify-between items-center z-40 backdrop-blur-xl bg-slate-950/80">
+            <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
+                <i class="fa-solid fa-house text-lg"></i>
+                <span class="text-[10px] mt-1 font-bold">الرئيسية</span>
+            </button>
+            <button onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-plane-up text-lg"></i>
+                <span class="text-[10px] mt-1">يسافر</span>
+            </button>
+            <button onclick="switchTab('income')" id="nav-income" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[10px] mt-1">دخل</span>
+            </button>
+            <button onclick="switchTab('team')" id="nav-team" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-users text-lg"></i>
+                <span class="text-[10px] mt-1">فريق</span>
+            </button>
+            <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-user text-lg"></i>
+                <span class="text-[10px] mt-1">ملكي</span>
+            </button>
+        </div>
+
     </div>
 
-    <!-- لوحة التحكم الرئيسية -->
-    <div id="dashboard-section" class="hidden">
-        <h2>لوحة التحكم</h2>
-        <div class="card">
-            <p><strong>المستوى:</strong> <span id="user-tier">-</span></p>
-            <p><strong>رصيد المحفظة:</strong> $<span id="user-wallet">0.00</span></p>
-            <p><strong>المهام المنجزة اليوم:</strong> <span id="user-tasks">0</span></p>
+    <!-- WITHDRAW MODAL -->
+    <div id="withdrawModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white">طلب سحب أسبوعي</h3>
+                <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">المبلغ المطلوب (USDT)</label>
+                <input type="number" id=" withdrawAmount" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="20">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">عنوان المحفظة (USDT TRC20)</label>
+                <input type="text" id="withdrawWallet" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="T...">
+            </div>
+            <button onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد طلب السحب</button>
         </div>
-        
-        <button onclick="completeTask()">إنجاز مهمة جديدة</button>
-        <button onclick="withdraw()" style="background: #1f6feb; margin-top: 10px;">طلب سحب أسبوعي</button>
-        <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
-        <p id="action-msg" class="msg" style="color: #3fb950;"></p>
     </div>
-</div>
 
-<script>
-    function toggleAuth(showRegister) {
-        if (showRegister) {
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('register-section').classList.remove('hidden');
-        } else {
-            document.getElementById('register-section').classList.add('hidden');
-            document.getElementById('login-section').classList.remove('hidden');
+    <script>
+        const API_URL = ''; // Same domain backend API
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hide');
+            setTimeout(() => toast.classList.add('hide'), 3000);
         }
-    }
 
-    async function register() {
-        const email = document.getElementById('reg-email').value;
-        const password = document.getElementById('reg-password').value;
-        const msg = document.getElementById('reg-msg');
-
-        try {
-            const res = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                msg.style.color = '#3fb950';
-                msg.innerText = 'تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.';
-                setTimeout(() => toggleAuth(false), 2000);
+        function switchAuthTab(tab) {
+            if(tab === 'login') {
+                document.getElementById('loginForm').classList.remove('hide');
+                document.getElementById('registerForm').classList.add('hide');
+                document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all";
+                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             } else {
-                msg.style.color = '#f85149';
-                msg.innerText = data.error || 'حدث خطأ';
+                document.getElementById('loginForm').classList.add('hide');
+                document.getElementById('registerForm').classList.remove('hide');
+                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl bg-purple-600 text-white transition-all";
+                document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             }
-        } catch (err) {
-            msg.style.color = '#f85149';
-            msg.innerText = 'فشل الاتصال بالخادم';
         }
-    }
 
-    async function login() {
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        const msg = document.getElementById('login-msg');
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    localStorage.setItem('token', data.token);
+                    showToast('تم تسجيل الدخول بنجاح');
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'خطأ في تسجيل الدخول');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال بالخادم');
+            }
+        }
 
-        try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+        async function handleRegister(e) {
+            e.preventDefault();
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إنشاء الحساب بنجاح، يرجى تسجيل الدخول');
+                    switchAuthTab('login');
+                } else {
+                    showToast(data.error || 'خطأ في التسجيل');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال بالخادم');
+            }
+        }
+
+        async function loadUserProfile() {
+            const token = localStorage.getItem('token');
+            if(!token) return;
+            try {
+                const res = await fetch('/api/user/profile', {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    document.getElementById('authView').classList.add('hide');
+                    document.getElementById('appView').classList.remove('hide');
+                    
+                    document.getElementById('lblUserEmail').innerText = data.user.email;
+                    document.getElementById('lblProfileEmail').innerText = data.user.email;
+                    document.getElementById('lblWalletBalance').innerText = `${data.user.assetWallet.toFixed(2)}$`;
+                    document.getElementById('lblProfileWallet').innerText = `${data.user.assetWallet.toFixed(2)}$`;
+                    document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks;
+                    document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
+                    
+                    let percent = (data.user.todayCompletedTasks / 33) * 100;
+                    document.getElementById('taskProgressBar').style.width = `${percent > 100 ? 100 : percent}%`;
+                } else {
+                    logout();
+                }
+            } catch(err) {
+                console.error(err);
+            }
+        }
+
+        async function completeTask() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/tasks/complete', {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إنجاز المهمة بنجاح وإضافة الأرباح!');
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'لا يمكن إنجاز المهمة');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
+            }
+        }
+
+        function switchTab(tabName) {
+            ['home', 'travel', 'income', 'team', 'profile'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hide');
+                document.getElementById(`nav-${t}`).className = "flex flex-col items-center flex-1 text-slate-400 transition-all";
             });
-            const data = await res.json();
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
-                loadProfile();
-            } else {
-                msg.innerText = data.error || 'حدث خطأ';
-            }
-        } catch (err) {
-            msg.innerText = 'فشل الاتصال بالخادم';
+            document.getElementById(`view-${tabName}`).classList.remove('hide');
+            document.getElementById(`nav-${tabName}`).className = "flex flex-col items-center flex-1 text-amber-500 transition-all";
         }
-    }
 
-    async function loadProfile() {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hide'); }
+        function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hide'); }
 
-        try {
-            const res = await fetch('/api/user/profile', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                document.getElementById('login-section').classList.add('hidden');
-                document.getElementById('register-section').classList.add('hidden');
-                document.getElementById('dashboard-section').classList.remove('hidden');
-                document.getElementById('user-tier').innerText = data.user.tierCode;
-                document.getElementById('user-wallet').innerText = data.user.assetWallet.toFixed(2);
-                document.getElementById('user-tasks').innerText = data.user.todayCompletedTasks;
-            } else {
-                logout();
+        async function submitWithdraw() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const walletAddress = document.getElementById('withdrawWallet').value;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/wallet/withdraw', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({amount, walletAddress})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إرسال طلب السحب بنجاح');
+                    closeWithdrawModal();
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'خطأ في طلب السحب');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
             }
-        } catch (err) {
-            console.error(err);
         }
-    }
 
-    async function completeTask() {
-        const token = localStorage.getItem('token');
-        const msg = document.getElementById('action-msg');
-        try {
-            const res = await fetch('/api/tasks/complete', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                document.getElementById('user-wallet').innerText = data.assetWallet.toFixed(2);
-                document.getElementById('user-tasks').innerText = data.completed;
-                msg.style.color = '#3fb950';
-                msg.innerText = 'تم إنجاز المهمة وإضافة الأرباح بنجاح!';
-            } else {
-                msg.style.color = '#f85149';
-                msg.innerText = data.error;
+        function copyReferral() {
+            navigator.clipboard.writeText(document.getElementById('lblReferralCode').innerText);
+            showToast('تم نسخ رمز الإحالة بنجاح');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            document.getElementById('appView').classList.add('hide');
+            document.getElementById('authView').classList.remove('hide');
+            showToast('تم تسجيل الخروج');
+        }
+
+        // Auto check token on load
+        window.onload = () => {
+            if(localStorage.getItem('token')) {
+                loadUserProfile();
             }
-        } catch (err) {
-            console.error(err);
         }
-    }
-
-    async function withdraw() {
-        const token = localStorage.getItem('token');
-        const amount = prompt('أدخل مبلغ السحب (بالدولار):');
-        const walletAddress = prompt('أدخل عنوان محفظتك (USDT):');
-        if (!amount || !walletAddress) return;
-
-        const msg = document.getElementById('action-msg');
-        try {
-            const res = await fetch('/api/wallet/withdraw', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token 
-                },
-                body: JSON.stringify({ amount: Number(amount), walletAddress })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                msg.style.color = '#3fb950';
-                msg.innerText = data.message;
-                loadProfile();
-            } else {
-                msg.style.color = '#f85149';
-                msg.innerText = data.error;
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    function logout() {
-        localStorage.removeItem('token');
-        document.getElementById('dashboard-section').classList.add('hidden');
-        document.getElementById('login-section').classList.remove('hidden');
-    }
-
-    if (localStorage.getItem('token')) {
-        loadProfile();
-    }
-</script>
-
+    </script>
 </body>
 </html>
