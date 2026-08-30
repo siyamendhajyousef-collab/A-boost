@@ -87,7 +87,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية
+// 🤖 مسار المستشار الذكي
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -102,7 +102,6 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 
     const cleanMessage = message.trim().toLowerCase();
 
-    // 🛡️ فلتر الكلمات الحساسة
     const flagKeywords = ['نصب', 'احتيال', 'سرقة', 'وهمي', 'فاشل', 'كذب', 'تزوير', 'حرام'];
     const isFlagged = flagKeywords.some(word => cleanMessage.includes(word));
 
@@ -332,10 +331,12 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// إكمال المهام وتحديث الأرباح
+// إكمال المهام وتحديث الأرباح (باستخدام التحديث المباشر)
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
     const tierLimits = { 'A1': 33, 'A2': 35, 'A3': 40, 'A4': 45, 'A5': 50 };
     const tierCommissions = { 'A1': 0.0346, 'A2': 0.0755, 'A3': 0.1518, 'A4': 0.3333, 'A5': 0.7571 };
     
@@ -346,73 +347,81 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
     }
 
-    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $inc: {
+          assetWallet: commission,
+          'wallet.balance': commission,
+          todayCompletedTasks: 1
+        }
+      },
+      { new: true }
+    ).select('-password');
 
-    user.assetWallet = Number((user.assetWallet + commission).toFixed(4));
-    user.wallet.balance = Number((user.wallet.balance + commission).toFixed(4));
-    user.todayCompletedTasks += 1;
-    
-    user.markModified('wallet');
-    await user.save();
-
-    res.status(200).json({ success: true, assetWallet: user.assetWallet, wallet: user.wallet, completed: user.todayCompletedTasks });
+    res.status(200).json({ 
+      success: true, 
+      assetWallet: updatedUser.assetWallet, 
+      wallet: updatedUser.wallet, 
+      completed: updatedUser.todayCompletedTasks 
+    });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
-// الإيداع
+// الإيداع (تحديث مباشر)
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
-    if (!amount || amount <= 0) {
+    const depositNum = Number(amount);
+    if (!depositNum || depositNum <= 0) {
       return res.status(400).json({ error: 'مبلغ الإيداع غير صالح' });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $inc: {
+          'wallet.balance': depositNum,
+          'wallet.totalDeposits': depositNum
+        }
+      },
+      { new: true }
+    );
 
-    if (!user.wallet) {
-      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
-    }
-
-    user.wallet.balance = Number((user.wallet.balance + Number(amount)).toFixed(4));
-    user.wallet.totalDeposits = Number((user.wallet.totalDeposits + Number(amount)).toFixed(4));
-    
-    user.markModified('wallet');
-    await user.save();
+    if (!updatedUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const depositTransaction = new Transaction({
-      userId: user._id,
+      userId: updatedUser._id,
       type: 'deposit',
-      amount: Number(amount),
+      amount: depositNum,
       walletAddress: 'System Deposit',
       status: 'approved'
     });
     await depositTransaction.save();
 
-    res.status(200).json({ success: true, message: 'تم إيداع الرصيد بنجاح', wallet: user.wallet });
+    res.status(200).json({ success: true, message: 'تم إيداع الرصيد بنجاح', wallet: updatedUser.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
-// 🎡 عجلة الحظ
+// 🎡 عجلة الحظ (تحديث مباشر في قاعدة البيانات)
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const rewardAmount = 5.00;
-    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    user.wallet.balance = Number((user.wallet.balance + rewardAmount).toFixed(4));
-    
-    user.markModified('wallet');
-    await user.save();
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { 'wallet.balance': rewardAmount } },
+      { new: true }
+    );
+
+    if (!updatedUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const rewardTransaction = new Transaction({
-      userId: user._id,
+      userId: updatedUser._id,
       type: 'reward',
       amount: rewardAmount,
       walletAddress: 'Lucky Spin Wheel',
@@ -420,28 +429,27 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
     });
     await rewardTransaction.save();
 
-    res.status(200).json({ success: true, reward: rewardAmount, wallet: user.wallet });
+    res.status(200).json({ success: true, reward: rewardAmount, wallet: updatedUser.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
-// 🎁 الصندوق الغامض
+// 🎁 الصندوق الغامض (تحديث مباشر في قاعدة البيانات)
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const rewardAmount = 10.00;
-    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    user.wallet.balance = Number((user.wallet.balance + rewardAmount).toFixed(4));
-    
-    user.markModified('wallet');
-    await user.save();
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { 'wallet.balance': rewardAmount } },
+      { new: true }
+    );
+
+    if (!updatedUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     const rewardTransaction = new Transaction({
-      userId: user._id,
+      userId: updatedUser._id,
       type: 'reward',
       amount: rewardAmount,
       walletAddress: 'Mystery Box',
@@ -449,13 +457,13 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
     });
     await rewardTransaction.save();
 
-    res.status(200).json({ success: true, reward: rewardAmount, wallet: user.wallet });
+    res.status(200).json({ success: true, reward: rewardAmount, wallet: updatedUser.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
-// 💸 السحب
+// 💸 السحب (تحديث مباشر مع التحقق من الرصيد)
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -479,21 +487,25 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     if (withdrawNum > maxLimit) {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
-    
-    if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
-    if (user.wallet.balance < withdrawNum) {
+    const currentBalance = user.wallet ? user.wallet.balance : 0;
+    if (currentBalance < withdrawNum) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
     }
 
-    user.wallet.balance = Number((user.wallet.balance - withdrawNum).toFixed(4));
-    user.wallet.totalWithdrawn = Number((user.wallet.totalWithdrawn + withdrawNum).toFixed(4));
-    
-    user.markModified('wallet');
-    await user.save();
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $inc: {
+          'wallet.balance': -withdrawNum,
+          'wallet.totalWithdrawn': withdrawNum
+        }
+      },
+      { new: true }
+    );
 
     const withdrawal = new Transaction({
-      userId: user._id,
+      userId: updatedUser._id,
       type: 'withdraw',
       amount: withdrawNum,
       walletAddress,
@@ -501,7 +513,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     });
     await withdrawal.save();
 
-    res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح', wallet: user.wallet });
+    res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح', wallet: updatedUser.wallet });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
