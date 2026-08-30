@@ -821,7 +821,6 @@
             document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
         }
 
-        // دالة مساعدة لتحديث الواجهة وقفل العنوان
         function lockWalletUI(address) {
             if (!address) return;
             
@@ -885,7 +884,6 @@
                     currentUserTier = data.user.tierCode || 'A1';
                     updateWalletData(data.user.wallet);
 
-                    // تحديث بيانات شجرة الفريق والعمولات والـ Ranks إن توفرت في استجابة السيرفر
                     updateTeamTreeData(data.user.teamStats || { l1: 0, l2: 0, l3: 0, total: 0 });
 
                     let maxTasks = tierLimits[currentUserTier] || 33;
@@ -904,7 +902,6 @@
             }
         }
 
-        // دالة تحديث واجهة شجرة الفريق والعمولات اليومية ورتب النجاح
         function updateTeamTreeData(stats) {
             const l1 = stats.l1 || 0;
             const l2 = stats.l2 || 0;
@@ -916,12 +913,9 @@
             document.getElementById('lblTeamL3Count').innerText = `${l3} شخص`;
             document.getElementById('lblTotalTeamCount').innerText = `إجمالي الفريق: ${total}`;
 
-            // احتساب العمولات اليومية الإجمالية بناءً على الشروط:
-            // L1 = $0.01, L2 = $0.005, L3 = $0.0025
             const dailyEarnings = (l1 * 0.01) + (l2 * 0.005) + (l3 * 0.0025);
             document.getElementById('lblDailyTeamEarnings').innerText = `${dailyEarnings.toFixed(4)} $ / يوم`;
 
-            // تحديث شائت الرتب وحالتها
             updateRankStatus(1, total, 60, 'rankTier1', 'badgeRank1Status');
             updateRankStatus(2, total, 120, 'rankTier2', 'badgeRank2Status');
             updateRankStatus(3, total, 240, 'rankTier3', 'badgeRank3Status');
