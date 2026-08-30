@@ -128,7 +128,7 @@
                             </tr>
                         </thead>
                         <tbody id="tblUsersBody" class="divide-y divide-slate-800/50">
-                            <!-- بيانات مستخدمين تجريبية تجلب لاحقاً من API السيرفر -->
+                            <!-- تجلب البيانات من السيرفر تلقائياً -->
                         </tbody>
                     </table>
                 </div>
@@ -153,7 +153,7 @@
                             </tr>
                         </thead>
                         <tbody id="tblTransactionsBody" class="divide-y divide-slate-800/50">
-                            <!-- الطلبات المعلقة -->
+                            <!-- الطلبات المعلقة تجلب تلقائياً -->
                         </tbody>
                     </table>
                 </div>
@@ -243,6 +243,8 @@
     </div>
 
     <script>
+        let allUsersData = [];
+
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
@@ -267,14 +269,15 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if(res.ok) {
-                    document.getElementById('statTotalUsers').innerText = data.totalUsers || 0;
-                    document.getElementById('statTotalDeposits').innerText = (data.totalDeposits || 0) + ' $';
-                    document.getElementById('statTotalWithdrawals').innerText = (data.totalWithdrawals || 0) + ' $';
-                    document.getElementById('statPendingRequests').innerText = data.pendingCount || 0;
+                if(res.ok && data.success) {
+                    const stats = data.stats || {};
+                    document.getElementById('statTotalUsers').innerText = stats.totalUsers || 0;
+                    document.getElementById('statTotalDeposits').innerText = (stats.totalDeposits || 0).toFixed(2) + ' $';
+                    document.getElementById('statTotalWithdrawals').innerText = (stats.totalWithdrawals || 0).toFixed(2) + ' $';
+                    document.getElementById('statPendingRequests').innerText = stats.pendingWithdrawals || 0;
                 }
             } catch(e) {
-                console.error(e);
+                console.error('خطأ الإحصائيات:', e);
             }
         }
 
@@ -286,21 +289,97 @@
                 });
                 const users = await res.json();
                 if(res.ok && Array.isArray(users)) {
-                    const tbody = document.getElementById('tblUsersBody');
-                    tbody.innerHTML = users.map(u => `
-                        <tr>
-                            <td class="p-4 font-bold text-white">${u.email}</td>
-                            <td class="p-4"><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">${u.tierCode || 'A1'}</span></td>
-                            <td class="p-4 text-emerald-400 font-mono font-bold">${Number(u.wallet?.balance || 0).toFixed(2)} $</td>
-                            <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
-                            <td class="p-4 space-x-2 space-x-reverse">
-                                <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40">تعديل</button>
-                                <button onclick="toggleBlockUser('${u._id}')" class="px-3 py-1 bg-rose-600/20 text-rose-400 rounded-lg text-[10px] font-bold hover:bg-rose-600/40">حظر</button>
-                            </td>
-                        </tr>
-                    `).join('');
+                    allUsersData = users;
+                    renderUsersTable(users);
                 }
             } catch(e) { console.error(e); }
+        }
+
+        function renderUsersTable(users) {
+            const tbody = document.getElementById('tblUsersBody');
+            if(!users || users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">لا يوجد مستخدمين لعرضهم</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td class="p-4 font-bold text-white">${u.email}</td>
+                    <td class="p-4"><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">${u.tierCode || 'A1'}</span></td>
+                    <td class="p-4 text-emerald-400 font-mono font-bold">${Number(u.wallet?.balance || 0).toFixed(2)} $</td>
+                    <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
+                    <td class="p-4 space-x-2 space-x-reverse">
+                        <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition-all">تعديل</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterUsersTable() {
+            const term = document.getElementById('txtSearchUser').value.toLowerCase();
+            const filtered = allUsersData.filter(u => u.email && u.email.toLowerCase().includes(term));
+            renderUsersTable(filtered);
+        }
+
+        async function fetchTransactionsList() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/withdrawals', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const tbody = document.getElementById('tblTransactionsBody');
+                    if (!data.withdrawals || data.withdrawals.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد طلبات سحب حالياً</td></tr>`;
+                        return;
+                    }
+                    tbody.innerHTML = data.withdrawals.map(tx => {
+                        const statusBadge = tx.status === 'pending' 
+                            ? `<span class="px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold text-[10px]">معلق</span>`
+                            : tx.status === 'approved'
+                            ? `<span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">مقبول</span>`
+                            : `<span class="px-2 py-1 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">مرفوض</span>`;
+
+                        const actionButtons = tx.status === 'pending' ? `
+                            <button onclick="handleWithdrawalAction('${tx._id}', 'approve')" class="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 rounded-lg font-bold ml-1 transition-all">موافقة</button>
+                            <button onclick="handleWithdrawalAction('${tx._id}', 'reject')" class="px-3 py-1 bg-rose-600/20 text-rose-400 hover:bg-rose-600/40 rounded-lg font-bold transition-all">رفض</button>
+                        ` : `<span class="text-slate-500 text-[10px]">تم اتخاذ الإجراء</span>`;
+
+                        return `
+                            <tr>
+                                <td class="p-4 font-bold text-white">${tx.userId ? tx.userId.email : 'مستخدم غير معروف'}</td>
+                                <td class="p-4 font-semibold text-slate-300">${tx.type === 'withdraw' ? 'سحب رصيد' : tx.type}</td>
+                                <td class="p-4 text-amber-400 font-mono font-bold">${Number(tx.amount || 0).toFixed(2)} $</td>
+                                <td class="p-4 text-slate-300 font-mono text-[11px] select-all">${tx.walletAddress || 'غير محدد'}</td>
+                                <td class="p-4">${statusBadge}</td>
+                                <td class="p-4 space-x-1 space-x-reverse">${actionButtons}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (e) { console.error('خطأ المعاملات:', e); }
+        }
+
+        async function handleWithdrawalAction(transactionId, action) {
+            const actionText = action === 'approve' ? 'الموافقة على' : 'رفض';
+            if (!confirm(`هل أنت تأكد من رغبتك في ${actionText} هذا الطلب؟`)) return;
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/withdrawals/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ transactionId, action })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message || 'تم اتخاذ الإجراء بنجاح');
+                    fetchTransactionsList();
+                    fetchAdminOverview();
+                } else {
+                    showToast(data.error || 'حدث خطأ في معالجة الطلب');
+                }
+            } catch (e) { showToast('خطأ في الاتصال بالسيرفر'); }
         }
 
         function openEditUser(id, tier, balance) {
@@ -330,6 +409,7 @@
                     showToast('تم تحديث بيانات المستخدم بنجاح');
                     closeEditUserModal();
                     fetchUsersList();
+                    fetchAdminOverview();
                 } else {
                     showToast('حدث خطأ أثناء التحديث');
                 }
@@ -382,6 +462,7 @@
         window.onload = () => {
             fetchAdminOverview();
             fetchUsersList();
+            fetchTransactionsList();
         }
     </script>
 </body>
