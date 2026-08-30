@@ -4,6 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const nodemailer = require('nodemailer'); // 📧 إضافة مكتبة إرسال الإيميل
 
 const app = express();
 app.use(express.json());
@@ -11,7 +12,16 @@ app.use(cors());
 
 app.use(express.static(path.join(__dirname)));
 
-const JWT_SECRET = 'boost_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
+
+// 📧 إعدادات موصل البريد الإلكتروني (Nodemailer Transporter)
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // أو أي خدمة SMTP أخرى تستخدمها
+  auth: {
+    user: process.env.EMAIL_USER || 'your-email@gmail.com', // بريدك الإلكتروني
+    pass: process.env.EMAIL_PASS || 'your-app-password'      // كلمة مرور التطبيق (App Password)
+  }
+});
 
 // 1. الاتصال بقاعدة البيانات
 const MONGO_URI = process.env.MONGO_URI || '';
@@ -38,7 +48,10 @@ const userSchema = new mongoose.Schema({
     balance: { type: Number, default: 0 },
     totalDeposits: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 }
-  }
+  },
+  // 🔑 حقول جديدة مخصصة لإعادة تعيين كلمة المرور
+  resetOTP: { type: String, default: null },
+  resetOTPExpire: { type: Date, default: null }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -105,6 +118,98 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.status(200).json({ success: true, token, user });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🔑 1. مسار طلب رمز استعادة كلمة المرور (Send OTP)
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'يرجى إدخال البريد الإلكتروني' });
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'البريد الإلكتروني غير مسجل لدينا' });
+    }
+
+    // إنشاء رمز مكون من 6 أرقام عشوائية
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // تحديد وقت انتهاء الرمز بعد 10 دقائق
+    user.resetOTP = otp;
+    user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    // إرسال الإيميل
+    const mailOptions = {
+      from: '"مركز الدعم" <no-reply@boost.com>',
+      to: user.email,
+      subject: 'رمز استعادة كلمة المرور الخاصة بك',
+      html: `
+        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;">
+          <h2>طلب استعادة كلمة المرور</h2>
+          <p>أهلاً بك، لقد طلبت إعادة تعيين كلمة المرور الخاصة بحسابك.</p>
+          <p>رمز التحقق (OTP) الخاص بك هو:</p>
+          <h1 style="color: #4CAF50; letter-spacing: 5px;">${otp}</h1>
+          <p>هذا الرمز صالِح لمدة 10 دقائق فقط.</p>
+          <p>إذا لم تقم بطلب هذا الإجراء، يمكنك إهمال هذه الرسالة بكل أمان.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ success: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' });
+
+  } catch (err) {
+    res.status(500).json({ error: 'فشل إرسال البريد الإلكتروني: ' + err.message });
+  }
+});
+
+// 🔑 2. مسار التحقق من صحة الرمز (Verify OTP)
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({
+      email,
+      resetOTP: otp,
+      resetOTPExpire: { $gt: Date.now() } // التأكد من عدم انتهاء الوقت
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'رمز التحقق غير صحيح أو انتهت صلاحيته' });
+    }
+
+    res.status(200).json({ success: true, message: 'رمز التحقق صحيح' });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🔑 3. مسار تعيين كلمة المرور الجديدة (Reset Password)
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({
+      email,
+      resetOTP: otp,
+      resetOTPExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'جلسة التغيير غير صالحة أو انتهت الصلاحية' });
+    }
+
+    // تشفير كلمة المرور الجديدة
+    user.password = await bcrypt.hash(newPassword, 10);
+    // تفريغ حقول الـ OTP لضمان عدم استخدامه مرة أخرى
+    user.resetOTP = null;
+    user.resetOTPExpire = null;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
