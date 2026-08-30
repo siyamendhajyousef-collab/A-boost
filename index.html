@@ -3,279 +3,806 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة التداول والأرباح الذكية</title>
+    <title>Ag Boost - المنصة الذكية المتكاملة (النسخة الخارقة v3.0)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
-        body { background-color: #0f172a; color: #f8fafc; direction: rtl; text-align: right; }
-        .container { max-width: 480px; margin: 0 auto; background: #1e293b; min-height: 100vh; padding: 20px; position: relative; }
-        h1, h2, h3 { color: #38bdf8; margin-bottom: 15px; }
-        .card { background: #334155; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .btn { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; }
-        .btn:hover { background: #0369a1; }
-        input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; }
-        .hidden { display: none !important; }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0284c7; color: white; padding: 10px 20px; border-radius: 8px; z-index: 1000; transition: 0.3s; }
-        .wheel-container { text-align: center; margin: 20px 0; }
-        #spinWheelVisual { width: 150px; height: 150px; border-radius: 50%; background: conic-gradient(#38bdf8 0deg 90deg, #0284c7 90deg 180deg, #bae6fd 180deg 270deg, #0369a1 270deg 360deg); margin: 0 auto 15px; transition: transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #030712; color: #f3f4f6; }
+        .glass-card { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.07); }
+        .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .purple-gradient { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+        .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .holographic { background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .hide { display: none !important; }
+        @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .animate-ticker { display: inline-flex; white-space: nowrap; animation: ticker 25s linear infinite; }
+        .animate-ticker:hover { animation-play-state: paused; }
     </style>
 </head>
-<body>
+<body class="pb-28 max-w-md mx-auto min-h-screen relative shadow-2xl overflow-x-hidden border-x border-slate-900">
 
-<div class="container">
-    <div id="toast" class="hidden toast"></div>
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
 
-    <!-- شاشة تسجيل الدخول -->
-    <div id="authScreen" class="card">
-        <h2>تسجيل الدخول / إنشاء حساب</h2>
-        <input type="email" id="authEmail" placeholder="البريد الإلكتروني">
-        <input type="password" id="authPassword" placeholder="كلمة المرور">
-        <button class="btn" onclick="login()">دخول</button>
-        <button class="btn" style="background: #475569;" onclick="register()">حساب جديد</button>
-    </div>
-
-    <!-- لوحة التحكم الرئيسية -->
-    <div id="dashboardScreen" class="hidden">
-        <div class="card">
-            <h3>مرحباً بك</h3>
-            <p>البريد: <span id="userEmailDisplay"></span></p>
-            <p>المستوى: <span id="userTier">A1</span></p>
-            <p>رصيد المحفظة الأساسي: <span id="walletBalance">0.00</span> $</p>
-            <p>أرباح المهام (Asset Wallet): <span id="assetWallet">0.00</span> $</p>
-            <button class="btn" style="background: #ef4444;" onclick="logout()">تسجيل الخروج</button>
+    <!-- شريط التنبيهات الحية المتحرك -->
+    <div id="liveTickerBar" class="bg-slate-950 border-b border-slate-800/80 py-2 px-3 overflow-hidden text-xs text-amber-400 flex items-center shadow-inner relative z-30 hide">
+        <div class="flex items-center space-x-2 space-x-reverse ml-3 shrink-0 bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/30 text-amber-300">
+            <i class="fa-solid fa-satellite-dish animate-pulse"></i>
+            <span class="font-bold text-[11px]">البث الحي:</span>
         </div>
-
-        <!-- شحن الرصيد والإيداع -->
-        <div class="card">
-            <h3>إيداع رصيد المحفظة</h3>
-            <input type="number" id="depositAmount" placeholder="مبلغ الإيداع ($)">
-            <button class="btn" onclick="confirmDeposit()">تأكيد الإيداع</button>
-        </div>
-
-        <!-- عجلة الحظ -->
-        <div class="card wheel-container">
-            <h3>عجلة الحظ الكبرى</h3>
-            <div id="spinWheelVisual"></div>
-            <button class="btn" onclick="triggerQuerySpin()">تدوير العجلة (ربح 5$)</button>
-        </div>
-
-        <!-- الصندوق المفاجئ -->
-        <div class="card" style="text-align: center;">
-            <h3>الصندوق المفاجئ</h3>
-            <button class="btn" style="background: #10b981;" onclick="openMysteryBox()">فتح الصندوق (ربح 10$)</button>
-        </div>
-
-        <!-- إنجاز المهام -->
-        <div class="card">
-            <h3>المهام اليومية</h3>
-            <p>المهام المنجزة اليوم: <span id="completedTasks">0</span></p>
-            <button class="btn" style="background: #8b5cf6;" onclick="completeTask()">إنجاز مهمة</button>
-        </div>
-
-        <!-- السحب -->
-        <div class="card">
-            <h3>طلب سحب الأرباح</h3>
-            <input type="number" id="withdrawAmount" placeholder="المبلغ المراد سحبه">
-            <input type="text" id="withdrawWallet" placeholder="عنوان محفظة USDT">
-            <button class="btn" style="background: #f59e0b;" onclick="submitWithdraw()">سحب الأرباح</button>
+        <div class="overflow-hidden relative w-full flex">
+            <div class="animate-ticker space-x-8 space-x-reverse text-slate-300">
+                <span>🔥 مكافآت الترقية المتضاعفة مفعلة: (4$ × 2^Level)</span>
+                <span>•</span>
+                <span>📈 أداء مؤشر Ag Index يرتفع بنسبة +14.2%</span>
+                <span>•</span>
+                <span>🤖 المستشار الذكي جاهز للرد على استفساراتك المالية</span>
+                <span>•</span>
+                <span>🎁 مكافأة الدخول اليومي المتتالي متاحة الآن</span>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    const token = localStorage.getItem('token');
-    if (token) {
-        document.getElementById('authScreen').classList.add('hidden');
-        document.getElementById('dashboardScreen').classList.remove('hidden');
-        loadUserProfile();
-    }
+    <!-- شاشة الدخول والتسجيل -->
+    <div id="authView" class="p-6 mt-8">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 mx-auto gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 mb-4">
+                <i class="fa-solid fa-bolt-lightning text-3xl text-slate-950"></i>
+            </div>
+            <h1 class="text-2xl font-black text-white">Ag Boost Ultimate</h1>
+            <p class="text-slate-400 text-sm mt-1">منصة الاستثمار والمهام الذكية المتكاملة</p>
+        </div>
 
-    function showToast(message) {
-        const t = document.getElementById('toast');
-        t.innerText = message;
-        t.classList.remove('hidden');
-        setTimeout(() => t.classList.add('hidden'), 3000);
-    }
+        <div class="glass-card p-6 rounded-3xl shadow-2xl">
+            <div class="flex bg-slate-900/90 p-1.5 rounded-2xl mb-6 border border-slate-800">
+                <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all">تسجيل الدخول</button>
+                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all">حساب جديد</button>
+            </div>
 
-    async function login() {
-        const email = document.getElementById('authEmail').value;
-        const password = document.getElementById('authPassword').value;
-        try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, password})
-            });
-            const data = await res.json();
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
-                showToast('تم تسجيل الدخول بنجاح');
-                location.reload();
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
+                    <input type="email" id="loginEmail" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
+                    <input type="password" id="loginPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
+            </form>
+
+            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hide">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
+                    <input type="email" id="regEmail" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
+                    <input type="password" id="regPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">إنشاء حساب ومحفظة خاصة</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- التطبيق الرئيسي -->
+    <div id="appView" class="hide">
+
+        <!-- واجهة الرئيسية -->
+        <div id="view-home" class="p-4 space-y-4">
+            <div class="glass-card p-4 rounded-3xl flex items-center justify-between border-slate-800">
+                <div class="flex items-center space-x-3 space-x-reverse">
+                    <div class="w-12 h-12 rounded-2xl gold-gradient flex items-center justify-center font-black text-lg shadow-md text-slate-950">AG</div>
+                    <div>
+                        <h2 id="lblUserEmail" class="text-sm font-bold text-white truncate max-w-[170px]">user@domain.com</h2>
+                        <span id="lblUserTierBadge" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 mt-1 border border-amber-500/30">مستوى A1 المعتمد</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <button onclick="openNotificationsModal()" class="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center border border-slate-800 relative">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    </button>
+                    <button onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
+                </div>
+            </div>
+
+            <!-- رصيد المحفظة الشخصية -->
+            <div class="glass-card p-5 rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/30 border border-amber-500/40 shadow-2xl relative overflow-hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs text-slate-400 font-bold flex items-center">
+                        <i class="fa-solid fa-wallet text-amber-400 ml-1.5"></i> رصيد محفظتك المضمون
+                    </span>
+                    <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full font-extrabold border border-emerald-500/30">مؤمن بالكامل</span>
+                </div>
+                <div class="flex items-baseline space-x-2 space-x-reverse">
+                    <h2 id="lblWalletBalance" class="text-3xl font-black text-white">0.00</h2>
+                    <span class="text-sm text-amber-400 font-bold">USDT</span>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-slate-400 block">الإيداعات المفعلة</span>
+                        <b id="lblTotalDeposits" class="text-emerald-400">0.00 $</b>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">الأرباح المسحوبة</span>
+                        <b id="lblTotalWithdrawn" class="text-amber-400">0.00 $</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ميزة جديدة: مكافأة تسجيل الدخول اليومي (7-Day Check-in Streak) -->
+            <div class="glass-card p-4 rounded-3xl space-y-3 border border-purple-500/30">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-fire text-amber-500 ml-1.5"></i> سلسلة الحضور اليومي</span>
+                    <span id="lblStreakCount" class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-bold">اليوم 3 من 7</span>
+                </div>
+                <div class="grid grid-cols-7 gap-1.5 text-center text-[10px]">
+                    <div class="bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 py-1.5 rounded-xl font-bold">1$ ✓</div>
+                    <div class="bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 py-1.5 rounded-xl font-bold">2$ ✓</div>
+                    <div class="bg-amber-500/20 border border-amber-500/50 text-amber-300 py-1.5 rounded-xl font-bold animate-pulse">3$</div>
+                    <div class="bg-slate-900 border border-slate-800 text-slate-500 py-1.5 rounded-xl">4$</div>
+                    <div class="bg-slate-900 border border-slate-800 text-slate-500 py-1.5 rounded-xl">5$</div>
+                    <div class="bg-slate-900 border border-slate-800 text-slate-500 py-1.5 rounded-xl">6$</div>
+                    <div class="bg-purple-900/40 border border-purple-500/40 text-purple-300 py-1.5 rounded-xl font-bold">🎁 15$</div>
+                </div>
+                <button onclick="claimDailyStreak()" class="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl shadow active:scale-95 transition-all">مطالبة بمكافأة اليوم (3$)</button>
+            </div>
+
+            <!-- ميزة جديدة: شارت الأداء للأسعار والحساب (Live Mini Market Sparkline) -->
+            <div class="glass-card p-4 rounded-3xl space-y-2 border border-slate-800">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-white flex items-center"><i class="fa-solid fa-chart-line text-emerald-400 ml-1.5"></i> Ag Growth Index</span>
+                    <span class="text-emerald-400 font-extrabold">+18.4% ↗</span>
+                </div>
+                <div class="h-16 w-full flex items-end">
+                    <svg class="w-full h-full text-emerald-500 overflow-visible" viewBox="0 0 100 30" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M0,25 Q15,20 30,22 T60,10 T80,14 T100,2" stroke="url(#grad)" stroke-width="2.5" fill="none"/>
+                        <defs>
+                            <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stop-color="#10b981" />
+                                <stop offset="100%" stop-color="#f59e0b" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- بطاقة العضوية وترقية المستويات مع المكافأة المتضاعفة -->
+            <div class="holographic p-5 rounded-3xl relative overflow-hidden shadow-xl space-y-3">
+                <div class="flex justify-between items-center relative z-10">
+                    <div>
+                        <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">بطاقة العضوية ونظام الترقيات</span>
+                        <h3 id="lblCardTierName" class="text-lg font-black text-white mt-0.5">رتبة A1 (مستوى 1)</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-amber-500/20 flex justify-between items-center text-xs relative z-10">
+                    <span class="text-slate-300">مكافأة الترقية القادمة: <b id="lblNextBonus" class="text-emerald-400">8.00 $ (4$ × 2^2)</b></span>
+                    <button onclick="upgradeTier()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs shadow">ترقية الرتبة الآن</button>
+                </div>
+            </div>
+
+            <!-- أزرار العمليات السريعة -->
+            <div class="grid grid-cols-4 gap-2.5 text-center">
+                <div onclick="openWithdrawModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-wallet text-base"></i></div>
+                    <span class="text-[11px] font-medium text-slate-300">سحب</span>
+                </div>
+                <div onclick="openDepositModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-emerald-500/50 transition-all border-emerald-500/30 bg-emerald-950/20">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-bolt text-base"></i></div>
+                    <span class="text-[11px] font-bold text-emerald-300">شحن</span>
+                </div>
+                <div onclick="switchTab('spin')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-purple-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-dharmachakra text-base"></i></div>
+                    <span class="text-[11px] font-medium text-slate-300">الحظ</span>
+                </div>
+                <div onclick="switchTab('ai')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all border-blue-500/30 bg-blue-950/20">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-robot text-base"></i></div>
+                    <span class="text-[11px] font-bold text-blue-300">المستشار AI</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- واجهة السفر والمهام -->
+        <div id="view-travel" class="p-4 space-y-4 hide">
+            <div class="relative rounded-3xl overflow-hidden glass-card border border-amber-500/30 p-5 shadow-xl bg-gradient-to-tr from-slate-950 via-purple-950/40 to-slate-900">
+                <div class="relative z-10 flex items-center justify-between">
+                    <div>
+                        <span class="inline-flex items-center text-[10px] bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full font-extrabold border border-amber-500/30">
+                            <i class="fa-solid fa-plane-circle-check ml-1"></i> مهام السفر اليومية (12 شهراً)
+                        </span>
+                        <h2 class="text-lg font-black text-white mt-2">رحلة النخبة الاستثمارية</h2>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-globe text-xl animate-spin" style="animation-duration: 15s;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-3xl text-center space-y-6 border border-purple-500/30 shadow-xl">
+                <div class="relative w-32 h-32 mx-auto flex items-center justify-center rounded-full bg-slate-950 border-4 border-slate-900 shadow-2xl">
+                    <div class="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" style="animation-duration: 8s;"></div>
+                    <div class="text-center z-10">
+                        <span id="lblCompletedTasks" class="text-3xl font-black text-white">0</span>
+                        <span class="text-xs text-slate-400 block font-bold mt-0.5">من أصل <span class="text-amber-400">33</span></span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold px-1">
+                        <span class="text-slate-400">معدل الإنجاز اليومي</span>
+                        <span id="lblProgressPercent" class="text-amber-400">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-slate-800">
+                        <div id="taskProgressBar" class="gold-gradient h-full rounded-full transition-all duration-700 shadow-lg" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <button onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
+                    <i class="fa-solid fa-bolt text-base"></i>
+                    <span>إنجاز المهمة وإضافة الأرباح لمحفظتك</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- واجهة المستشار الذكي -->
+        <div id="view-ai" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl space-y-3 border border-blue-500/30">
+                <div class="flex items-center space-x-3 space-x-reverse">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl border border-blue-500/30">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-white">المستشار الذكي (Ag AI Advisor)</h2>
+                        <span class="text-[10px] text-emerald-400 font-bold">متصل وجاهز للرد الفوري</span>
+                    </div>
+                </div>
+                <div id="aiChatBox" class="bg-slate-950 p-4 rounded-2xl h-60 overflow-y-auto space-y-3 text-xs border border-slate-800">
+                    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">
+                        مرحباً بك! أنا مستشارك الذكي في منصة Ag Boost. كيف يمكنني مساعدتك اليوم في حساب أرباحك، توجيهك لترقية مستواك، أو اختيار طريقة الاستثمار الأنسب؟
+                    </div>
+                </div>
+                <div class="flex space-x-2 space-x-reverse">
+                    <input type="text" id="aiInput" placeholder="اكتب سؤالك هنا..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <button onclick="sendAiMessage()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- واجهة عجلة الحظ والصناديق -->
+        <div id="view-spin" class="p-4 space-y-4 hide">
+            <div class="glass-card p-6 rounded-3xl text-center space-y-4 border border-purple-500/30">
+                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg">
+                    <i class="fa-solid fa-dharmachakra animate-spin" style="animation-duration: 10s;"></i>
+                </div>
+                <h2 class="text-lg font-bold text-white">عجلة الحظ والصناديق المفاجئة</h2>
+                <p class="text-xs text-slate-400">افتح الصناديق كل 3 أيام واربح جوائز نقدية مضاعفة!</p>
+                
+                <div class="py-4 relative flex items-center justify-center">
+                    <div id="spinWheelVisual" class="w-36 h-36 rounded-full border-4 border-purple-500/50 flex items-center justify-center bg-slate-950 shadow-2xl relative transition-all duration-1000">
+                        <span class="text-xs font-bold text-amber-400">Ag Spin</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="triggerLuckySpin()" class="py-3 purple-gradient text-white font-bold rounded-xl shadow-lg text-xs">تدوير العجلة</button>
+                    <button onclick="openMysteryBox()" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg text-xs">فتح صندوق مفاجئ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- واجهة الفريق، الشجرة، والأوسمة مع ميزة لوحة الصدارة -->
+        <div id="view-team" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl text-center space-y-3">
+                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
+                <h2 class="text-lg font-bold text-white">شجرة الفريق والإحالات</h2>
+                <p class="text-xs text-slate-400">شارك رابطك أو كود الـ QR لزيادة أرباح محفظتك.</p>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
+                    <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
+                    <button onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرابط</button>
+                </div>
+            </div>
+
+            <!-- ميزة جديدة: لوحة متصدري المنصة (VIP Leaderboard) -->
+            <div class="glass-card p-5 rounded-3xl space-y-3 border border-amber-500/30">
+                <h3 class="text-sm font-bold text-white flex items-center justify-between">
+                    <span><i class="fa-solid fa-trophy text-amber-400 ml-2"></i> متصدرو الأرباح هذا الأسبوع</span>
+                    <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">LIVE</span>
+                </h3>
+                <div class="space-y-2 text-xs">
+                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-amber-500/30">
+                        <div class="flex items-center space-x-2 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full gold-gradient text-slate-950 font-black text-[10px] flex items-center justify-center">1</span>
+                            <span class="text-white font-bold">أحمد الملا</span>
+                        </div>
+                        <span class="text-emerald-400 font-extrabold">+1,850 USDT</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex items-center space-x-2 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-300 font-bold text-[10px] flex items-center justify-center">2</span>
+                            <span class="text-slate-300 font-bold">Siamand K.</span>
+                        </div>
+                        <span class="text-emerald-400 font-bold">+1,240 USDT</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex items-center space-x-2 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 font-bold text-[10px] flex items-center justify-center">3</span>
+                            <span class="text-slate-400 font-bold">طارق خالد</span>
+                        </div>
+                        <span class="text-emerald-400 font-bold">+910 USDT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أوسمة وإنجازات -->
+            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-medal text-amber-400 ml-2"></i> أوسمتك وإنجازاتك الرقمية</h3>
+                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div class="bg-slate-900 p-3 rounded-2xl border border-amber-500/40">
+                        <i class="fa-solid fa-crown text-amber-400 text-xl mb-1"></i>
+                        <span class="block font-bold text-white">المستثمر النشط</span>
+                        <span class="text-[9px] text-emerald-400">مكتمل (+10$)</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 opacity-60">
+                        <i class="fa-solid fa-user-group text-slate-500 text-xl mb-1"></i>
+                        <span class="block font-bold text-slate-300">سفير الفريق</span>
+                        <span class="text-[9px] text-slate-500">متبقي 8 إحالات</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 opacity-60">
+                        <i class="fa-solid fa-dharmachakra text-slate-500 text-xl mb-1"></i>
+                        <span class="block font-bold text-slate-300">محظوظ المنصة</span>
+                        <span class="text-[9px] text-slate-500">قيد التقدم</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- واجهة الملف الشخصي مع سجل العمليات -->
+        <div id="view-profile" class="p-4 space-y-4 hide">
+            <div class="glass-card p-5 rounded-3xl flex items-center space-x-4 space-x-reverse">
+                <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg"><i class="fa-solid fa-user-tie"></i></div>
+                <div>
+                    <h3 id="lblProfileEmail" class="text-sm font-bold text-white">user@domain.com</h3>
+                    <p class="text-xs text-slate-400 mt-1">حماية متقدمة ومحفظة مشفرة نشطة</p>
+                </div>
+            </div>
+
+            <!-- ميزة جديدة: سجل المعاملات والنشاطات الأخيرة (Transaction History) -->
+            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-list-check text-amber-400 ml-2"></i> سجل المعاملات الأخير</h3>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div>
+                            <span class="text-white font-bold block">مكافأة ترقية المستوى</span>
+                            <span class="text-[9px] text-slate-500">اليوم، 14:20</span>
+                        </div>
+                        <span class="text-emerald-400 font-bold">+8.00 $</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div>
+                            <span class="text-white font-bold block">شحن محفظة USDT</span>
+                            <span class="text-[9px] text-slate-500">أمس، 09:15</span>
+                        </div>
+                        <span class="text-emerald-400 font-bold">+150.00 $</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إعدادات والتفضيلات -->
+            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-sliders text-amber-400 ml-2"></i> إعدادات وتفضيلات التطبيق</h3>
+                <div class="space-y-3 text-xs">
+                    <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                        <span class="text-white font-bold">التأثيرات الصوتية التفاعلية</span>
+                        <input type="checkbox" id="soundToggle" checked class="w-4 h-4 accent-amber-500" onchange="toggleSound(this)">
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                        <span class="text-white font-bold">الوضع المظلم الفاخر (OLED Dark)</span>
+                        <input type="checkbox" checked disabled class="w-4 h-4 accent-amber-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-3xl space-y-3">
+                <div onclick="logout()" class="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 cursor-pointer hover:bg-rose-500/20 transition-all border border-rose-500/20">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <i class="fa-solid fa-right-from-bracket text-rose-400"></i>
+                        <span class="text-xs font-bold text-rose-400">تسجيل الخروج وحفظ البيانات</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-xs text-rose-500"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- شريط التنقل السفلي -->
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-3 py-2 flex justify-between items-center z-40 bg-slate-950/90 backdrop-blur-xl">
+            <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
+                <i class="fa-solid fa-house text-base"></i>
+                <span class="text-[9px] mt-1 font-bold">الرئيسية</span>
+            </button>
+            <button onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-plane-up text-base"></i>
+                <span class="text-[9px] mt-1">يسافر</span>
+            </button>
+            <button onclick="switchTab('ai')" id="nav-ai" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-robot text-base"></i>
+                <span class="text-[9px] mt-1">الذكاء</span>
+            </button>
+            <button onclick="switchTab('spin')" id="nav-spin" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-dharmachakra text-base"></i>
+                <span class="text-[9px] mt-1">الحظ</span>
+            </button>
+            <button onclick="switchTab('team')" id="nav-team" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-users text-base"></i>
+                <span class="text-[9px] mt-1">فريق</span>
+            </button>
+            <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-user text-base"></i>
+                <span class="text-[9px] mt-1">ملكي</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- نافذة الإيداع وشحن المحفظة -->
+    <div id="depositModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-emerald-500/40 shadow-2xl relative overflow-hidden">
+            <div class="flex justify-between items-center relative z-10">
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <div class="w-8 h-8 rounded-xl emerald-gradient flex items-center justify-center text-white text-xs"><i class="fa-solid fa-wallet"></i></div>
+                    <h3 class="text-base font-bold text-white">إيداع وشحن محفظتك</h3>
+                </div>
+                <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 relative z-10">
+                <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 block">قيمة شحن المحفظة</span>
+                    <span class="text-2xl font-black text-emerald-400">150.00$ <span class="text-xs font-normal text-slate-400">USDT</span></span>
+                </div>
+                <button onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
+                    تأكيد إيداع 150$ لمحفظتك الشخصية
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة السحب -->
+    <div id="withdrawModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white">سحب رصيد المحفظة</h3>
+                <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">المبلغ المراد سحبه (USDT)</label>
+                <input type="number" id="withdrawAmount" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="50">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">عنوان محفظة TRC20</label>
+                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="T...">
+            </div>
+            <button onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
+        </div>
+    </div>
+
+    <!-- نافذة الإشعارات -->
+    <div id="notificationsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center"><i class="fa-solid fa-bell text-amber-400 ml-2"></i> مركز الإشعارات الفورية</h3>
+                <button onclick="closeNotificationsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <span class="text-white font-bold block">مكافأة الترقية نشطة</span>
+                    <span class="text-[10px] text-slate-400">احصل على 4$ × 2^Level عند الترقية التالية.</span>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <span class="text-white font-bold block">الصندوق المفاجئ جاهز</span>
+                    <span class="text-[10px] text-slate-400">افتح الصندوق الآن واربح رصيداً إضافياً.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLevel = 1;
+        let soundEnabled = true;
+
+        // نظام المؤثرات الصوتية المطورة (Chime / Beep / Upgrade)
+        function playBeep(type = 'default') {
+            if(!soundEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                if(type === 'upgrade') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.2);
+                } else if(type === 'win') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+                } else {
+                    osc.type = 'sine';
+                    osc.frequency.value = 600;
+                }
+
+                gain.gain.setValueAtTime(0.06, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            } catch(e) {}
+        }
+
+        function showToast(msg, soundType = 'default') {
+            playBeep(soundType);
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hide');
+            setTimeout(() => toast.classList.add('hide'), 3000);
+        }
+
+        function toggleSound(el) {
+            soundEnabled = el.checked;
+        }
+
+        function claimDailyStreak() {
+            showToast('🔥 تمت المطالبة بمكافأة الحضور اليومي (+3.00$) بنجاح!', 'win');
+        }
+
+        function switchAuthTab(tab) {
+            if(tab === 'login') {
+                document.getElementById('loginForm').classList.remove('hide');
+                document.getElementById('registerForm').classList.add('hide');
+                document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all";
+                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             } else {
-                showToast(data.error || 'فشل تسجيل الدخول');
+                document.getElementById('loginForm').classList.add('hide');
+                document.getElementById('registerForm').classList.remove('hide');
+                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl purple-gradient text-white transition-all";
+                document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
         }
-    }
 
-    async function register() {
-        const email = document.getElementById('authEmail').value;
-        const password = document.getElementById('authPassword').value;
-        try {
-            const res = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, password})
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showToast('تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن');
-            } else {
-                showToast(data.error || 'فشل التسجيل');
-            }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
-        }
-    }
-
-    async function loadUserProfile() {
-        const tk = localStorage.getItem('token');
-        try {
-            const res = await fetch('/api/user/profile', {
-                headers: {'Authorization': `Bearer ${tk}`}
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const u = data.user;
-                document.getElementById('userEmailDisplay').innerText = u.email;
-                document.getElementById('userTier').innerText = u.tierCode;
-                document.getElementById('assetWallet').innerText = (u.assetWallet || 0).toFixed(2);
-                document.getElementById('walletBalance').innerText = (u.wallet && u.wallet.balance ? u.wallet.balance : 0).toFixed(2);
-                document.getElementById('completedTasks').innerText = u.todayCompletedTasks || 0;
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    async function confirmDeposit() {
-        const amount = parseFloat(document.getElementById('depositAmount').value);
-        if (!amount || amount <= 0) {
-            showToast('يرجى إدخال مبلغ إيداع صحيح');
-            return;
-        }
-        const tk = localStorage.getItem('token');
-        try {
-            const res = await fetch('/api/wallet/deposit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}`},
-                body: JSON.stringify({ amount })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showToast('تم إيداع الرصيد بنجاح');
-                document.getElementById('depositAmount').value = '';
-                loadUserProfile();
-            } else {
-                showToast(data.error || 'خطأ في عملية الإيداع');
-            }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
-        }
-    }
-
-    async function triggerQuerySpin() {
-        const wheel = document.getElementById('spinWheelVisual');
-        wheel.style.transform = `rotate(${Math.floor(Math.random() * 1000 + 720)}deg)`;
-        const tk = localStorage.getItem('token');
-        try {
-            const res = await fetch('/api/rewards/claim', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}`},
-                body: JSON.stringify({ amount: 5.00 })
-            });
-            if (res.ok) {
-                setTimeout(() => {
-                    showToast('مبروك! ربحت 5.00$ من عجلة الحظ وأضيفت لمحفظتك');
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    localStorage.setItem('token', data.token);
+                    showToast('تم تسجيل الدخول بنجاح وحماية المحفظة');
                     loadUserProfile();
-                }, 1000);
-            } else {
-                showToast('خطأ في حفظ الجائزة');
+                } else {
+                    showToast(data.error || 'خطأ في تسجيل الدخول');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال بالخادم');
             }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
         }
-    }
 
-    async function openMysteryBox() {
-        const tk = localStorage.getItem('token');
-        try {
-            const res = await fetch('/api/rewards/claim', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}`},
-                body: JSON.stringify({ amount: 10.00 })
-            });
-            if (res.ok) {
-                showToast('🎁 مبروك! فتحت الصندوق وربحت 10.00$ أضيفت لمحفظتك!');
+        async function handleRegister(e) {
+            e.preventDefault();
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إنشاء الحساب والمحفظة بنجاح، يرجى الدخول');
+                    switchAuthTab('login');
+                } else {
+                    showToast(data.error || 'خطأ في التسجيل');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
+            }
+        }
+
+        async function loadUserProfile() {
+            const token = localStorage.getItem('token');
+            if(!token) return;
+            try {
+                const res = await fetch('/api/user/profile', {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    document.getElementById('authView').classList.add('hide');
+                    document.getElementById('appView').classList.remove('hide');
+                    document.getElementById('liveTickerBar').classList.remove('hide');
+                    
+                    document.getElementById('lblUserEmail').innerText = data.user.email;
+                    document.getElementById('lblProfileEmail').innerText = data.user.email;
+                    document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks;
+                    document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
+                    
+                    const wallet = data.user.wallet || { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+                    document.getElementById('lblWalletBalance').innerText = Number(wallet.balance || 0).toFixed(2);
+                    document.getElementById('lblTotalDeposits').innerText = Number(wallet.totalDeposits || 0).toFixed(2) + ' $';
+                    document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
+
+                    let maxTasks = 33;
+                    let percent = (data.user.todayCompletedTasks / maxTasks) * 100;
+                    document.getElementById('taskProgressBar').style.width = `${percent > 100 ? 100 : percent}%`;
+                    document.getElementById('lblProgressPercent').innerText = `${Math.round(percent > 100 ? 100 : percent)}%`;
+                    updateTierDisplay();
+                } else {
+                    logout();
+                }
+            } catch(err) {
+                console.error(err);
+            }
+        }
+
+        function updateTierDisplay() {
+            let nextLevelBonus = 4 * Math.pow(2, currentLevel);
+            document.getElementById('lblCardTierName').innerText = `رتبة A${currentLevel} (مستوى ${currentLevel})`;
+            document.getElementById('lblUserTierBadge').innerText = `مستوى A${currentLevel} المعتمد`;
+            document.getElementById('lblNextBonus').innerText = `${nextLevelBonus.toFixed(2)} $ (4$ × 2^${currentLevel})`;
+        }
+
+        async function upgradeTier() {
+            currentLevel++;
+            let bonusAmount = 4 * Math.pow(2, currentLevel - 1);
+            updateTierDisplay();
+            showToast(`مبروك! ترقيت للمستوى ${currentLevel} وحصلت على مكافأة ${bonusAmount}$ فوريّة!`, 'upgrade');
+        }
+
+        async function completeTask() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/tasks/complete', {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم إنجاز المهمة وإضافة الأرباح لمحفظتك!', 'win');
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'لا يمكن إنجاز المهمة');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
+            }
+        }
+
+        function triggerLuckySpin() {
+            const wheel = document.getElementById('spinWheelVisual');
+            wheel.style.transform = `rotate(${Math.floor(Math.random() * 1000 + 720)}deg)`;
+            setTimeout(() => {
+                showToast('مبروك! ربحت 5.00$ من عجلة الحظ الكبرى', 'win');
                 loadUserProfile();
-            } else {
-                showToast('خطأ في فتح الصندوق');
-            }
-        } catch (err) {
-            showToast('خطأ في الاتصال');
+            }, 1000);
         }
-    }
 
-    async function completeTask() {
-        const tk = localStorage.getItem('token');
-        try {
-            const res = await fetch('/api/tasks/complete', {
-                method: 'POST',
-                headers: {'Authorization': `Bearer ${tk}`}
+        function openMysteryBox() {
+            showToast('🎁 مبروك! فتحت صندوقاً مفاجئاً واكتشفت مكافأة 10.00$ أضيفت لمحفظتك!', 'win');
+        }
+
+        function sendAiMessage() {
+            const input = document.getElementById('aiInput');
+            const chatBox = document.getElementById('aiChatBox');
+            const query = input.value.trim();
+            if(!query) return;
+
+            chatBox.innerHTML += `<div class="bg-blue-950/40 p-3 rounded-xl border border-blue-900 text-white text-right">أنت: ${query}</div>`;
+            input.value = '';
+
+            setTimeout(() => {
+                let reply = "بناءً على تحليلي لحسابك، أنصحك بمتابعة إنجاز المهام اليومية وترقية مستواك للاستفادة من مكافآت 4$ المتضاعفة!";
+                if(query.includes('أرباح') || query.includes('كم')) {
+                    reply = `مستواك الحالي هو A${currentLevel}، ومكافأة ترقيتك القادمة هي ${4 * Math.pow(2, currentLevel)} دولار تضاف فوراً لرصيدك.`;
+                } else if(query.includes('سحب')) {
+                    reply = "عمليات السحب متاحة عبر شبكة TRC20 وتتم معالجتها آلياً وبأمان تام خلال دقائق.";
+                }
+                chatBox.innerHTML += `<div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">Ag AI: ${reply}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+                playBeep();
+            }, 800);
+        }
+
+        function switchTab(tabName) {
+            ['home', 'travel', 'ai', 'spin', 'team', 'profile'].forEach(t => {
+                const el = document.getElementById(`view-${t}`);
+                if(el) el.classList.add('hide');
+                const nav = document.getElementById(`nav-${t}`);
+                if(nav) nav.className = "flex flex-col items-center flex-1 text-slate-400 transition-all";
             });
-            const data = await res.json();
-            if (res.ok) {
-                showToast('تم إنجاز المهمة بنجاح وإضافة العمولة');
-                loadUserProfile();
-            } else {
-                showToast(data.error || 'خطأ في إنجاز المهمة');
+            document.getElementById(`view-${tabName}`).classList.remove('hide');
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            if(activeNav) activeNav.className = "flex flex-col items-center flex-1 text-amber-500 transition-all";
+        }
+
+        function openDepositModal() { document.getElementById('depositModal').classList.remove('hide'); }
+        function closeDepositModal() { document.getElementById('depositModal').classList.add('hide'); }
+        function openNotificationsModal() { document.getElementById('notificationsModal').classList.remove('hide'); }
+        function closeNotificationsModal() { document.getElementById('notificationsModal').classList.add('hide'); }
+        
+        async function confirmDeposit() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/wallet/deposit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({amount: 150})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم شحن محفظتك بـ 150$ بنجاح', 'win');
+                    closeDepositModal();
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'خطأ في عملية الإيداع');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
             }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
         }
-    }
 
-    async function submitWithdraw() {
-        const amount = parseFloat(document.getElementById('withdrawAmount').value);
-        const walletAddress = document.getElementById('withdrawWallet').value;
-        const tk = localStorage.getItem('token');
-        if (!amount || !walletAddress) {
-            showToast('يرجى إدخال المبلغ وعنوان المحفظة');
-            return;
-        }
-        try {
-            const res = await fetch('/api/wallet/withdraw', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}`},
-                body: JSON.stringify({ amount, walletAddress })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showToast('تم تقديم طلب السحب بنجاح');
-                loadUserProfile();
-            } else {
-                showToast(data.error || 'خطأ في طلب السحب');
+        function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hide'); }
+        function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hide'); }
+
+        async function submitWithdraw() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const walletAddress = document.getElementById('withdrawWallet').value;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/wallet/withdraw', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({amount, walletAddress})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    showToast('تم خصم وسحب المبلغ من محفظتك بنجاح');
+                    closeWithdrawModal();
+                    loadUserProfile();
+                } else {
+                    showToast(data.error || 'رصيد المحفظة لا يكفي');
+                }
+            } catch(err) {
+                showToast('خطأ في الاتصال');
             }
-        } catch (err) {
-            showToast('خطأ في الاتصال بالخادم');
         }
-    }
 
-    function logout() {
-        localStorage.removeItem('token');
-        location.reload();
-    }
-</script>
+        function copyReferral() {
+            navigator.clipboard.writeText('https://agboost.io/ref/' + document.getElementById('lblReferralCode').innerText);
+            showToast('تم نسخ رابط الإحالة بنجاح');
+        }
 
+        function logout() {
+            localStorage.removeItem('token');
+            document.getElementById('appView').classList.add('hide');
+            document.getElementById('authView').classList.remove('hide');
+            document.getElementById('liveTickerBar').classList.add('hide');
+            showToast('تم تسجيل الخروج وحفظ محفظتك بأمان');
+        }
+
+        window.onload = () => {
+            if(localStorage.getItem('token')) {
+                loadUserProfile();
+            }
+        }
+    </script>
 </body>
 </html>
