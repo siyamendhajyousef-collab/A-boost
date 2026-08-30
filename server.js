@@ -252,7 +252,7 @@ app.get('/api/vip-levels', async (req, res) => {
   }
 });
 
-// 🤖 مسار المستشار الذكي (Ag AI Advisor)
+// 🤖 مسار المستشار الذكي (Ag AI Advisor) - تم إصلاح مشكلة 404 وتحديث النماذج
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -277,7 +277,8 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 
     const apiKey = process.env.GROQ_API_KEY || process.env.Boostai;
     if (!apiKey) {
-      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً." });
+      console.error('❌ Groq API Key غير معرف في متغيرات البيئة.');
+      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً (مفتاح API غير معرف)." });
     }
 
     const groq = new Groq({ apiKey: apiKey.trim() });
@@ -298,25 +299,46 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message }
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_completion_tokens: 512,
-      top_p: 1
-    });
+    // قائمة بالنماذج المتاحة للربط الفوري وتفادي أخطاء 404
+    const modelsToTry = [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'mixtral-8x7b-32768'
+    ];
 
-    const replyText = completion.choices[0]?.message?.content;
+    let replyText = null;
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const completion = await groq.chat.completions.create({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message }
+          ],
+          model: model,
+          temperature: 0.7,
+          max_tokens: 512,
+          top_p: 1
+        });
+
+        replyText = completion.choices[0]?.message?.content;
+        if (replyText) break;
+      } catch (err) {
+        console.warn(`⚠️ فشل الاتصال بالنموذج ${model}:`, err.message);
+        lastError = err;
+      }
+    }
+
     if (replyText) {
       return res.json({ reply: replyText.trim() });
     } else {
-      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد حالياً." });
+      console.error('❌ خطأ Groq API التفصيلي:', lastError);
+      return res.status(500).json({ reply: "عذراً، تعذر الحصول على رد من المستشار الذكي حالياً." });
     }
   } catch (error) {
-    return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
+    console.error('❌ خطأ في مسار /api/ai/chat:', error);
+    return res.status(500).json({ reply: "حدث خطأ غير متوقع أثناء الاتصال بالمستشار الذكي." });
   }
 });
 
