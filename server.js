@@ -7,15 +7,27 @@ const path = require('path');
 const { Resend } = require('resend');
 const Groq = require('groq-sdk');
 const webpush = require('web-push');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
+// 🛡️ تحديد معدل الطلبات لحماية السيرفر من هجمات DDoS واستهلاك الـ API
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  max: 150, // حد أقصى 150 طلب لكل IP
+  message: { error: 'تم تجاوز حد الطلبات المسموح به، يرجى المحاولة لاحقاً' }
+});
+app.use('/api/', limiter);
+
 app.use(express.static(path.join(__dirname)));
 
 // 🔐 إعدادات المفتاح السري ومتغيرات البيئة
 const JWT_SECRET = process.env.JWT_SECRET || 'boost_secret_key_2026';
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️ تحذير أمني: يرجى ضبط JWT_SECRET في متغيرات البيئة بدلاً من المفتاح الافتراضي!');
+}
 
 // 📧 إعداد عميل Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -34,7 +46,7 @@ try {
   console.log('⚠️ ملاحظة حول إعدادات Web Push VAPID:', e.message);
 }
 
-// 🕹️ متغيرات إعدادات الألعاب (يمكن تعديلها حياً من الأدمن)
+// 🕹️ متغيرات إعدادات الألعاب
 let gameSettings = {
   spinMin: 1,
   spinMax: 10,
@@ -69,7 +81,6 @@ const userSchema = new mongoose.Schema({
   },
   resetOTP: { type: String, default: null },
   resetOTPExpire: { type: Date, default: null },
-  // طبقة أمان التحقق الثنائي (2FA)
   twoFactorCode: { type: String, default: null },
   twoFactorExpire: { type: Date, default: null },
   pushSubscription: { type: Object, default: null }
@@ -87,12 +98,11 @@ const transactionSchema = new mongoose.Schema({
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
-// 🔒 نظام التخزين المؤقت (Staking Pool)
 const stakingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   amount: { type: Number, required: true },
   durationDays: { type: Number, enum: [7, 15, 30], required: true },
-  profitRate: { type: Number, required: true }, // النسبة المئوية للأرباح
+  profitRate: { type: Number, required: true },
   expectedProfit: { type: Number, required: true },
   startDate: { type: Date, default: Date.now },
   endDate: { type: Date, required: true },
@@ -104,8 +114,6 @@ const Staking = mongoose.model('Staking', stakingSchema);
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
-    
-    // 👑 تحويل حسابك الشخصي تلقائياً إلى الأدمن الرئيسي
     try {
       const adminUser = await User.findOneAndUpdate(
         { email: 'asspetmax@gmail.com' },
@@ -133,7 +141,6 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    
     const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
     if (user.isBanned) return res.status(403).json({ error: 'تم تعليق حسابك من قبل الإدارة. يرجى التواصل مع الدعم الفني.' });
@@ -184,7 +191,6 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
     const userTier = user ? user.tierCode : 'A1';
 
     const cleanMessage = message.trim().toLowerCase();
-
     const flagKeywords = ['نصب', 'احتيال', 'سرقة', 'وهمي', 'فاشل', 'كذب', 'تزوير', 'حرام'];
     const isFlagged = flagKeywords.some(word => cleanMessage.includes(word));
 
@@ -230,13 +236,11 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
     });
 
     const replyText = completion.choices[0]?.message?.content;
-
     if (replyText) {
       return res.json({ reply: replyText.trim() });
     } else {
       return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد حالياً." });
     }
-
   } catch (error) {
     console.error("❌ Groq SDK Error:", error);
     return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
@@ -341,7 +345,7 @@ app.post('/api/user/2fa/send-code', verifyToken, async (req, res) => {
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     user.twoFactorCode = code;
-    user.twoFactorExpire = Date.now() + 5 * 60 * 1000; // صالح لمدة 5 دقائق
+    user.twoFactorExpire = Date.now() + 5 * 60 * 1000;
     await user.save();
 
     await resend.emails.send({
@@ -366,7 +370,7 @@ app.post('/api/user/2fa/send-code', verifyToken, async (req, res) => {
   }
 });
 
-// 🔔 مسار حفظ اشتراك الإشعارات الفورية (Web Push Subscriptions)
+// 🔔 مسار حفظ اشتراك الإشعارات الفورية
 app.post('/api/push/subscribe', verifyToken, async (req, res) => {
   try {
     const subscription = req.body;
@@ -396,14 +400,12 @@ app.post('/api/staking/create', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'مدة التخزين المتاحة هي 7، 15، أو 30 يوماً فقط' });
     }
 
-    // تحديد العائد حسب المدة
-    let profitRate = 0.05; // 5% لمدة 7 أيام
-    if (duration === 15) profitRate = 0.12; // 12%
-    if (duration === 30) profitRate = 0.30; // 30%
+    let profitRate = 0.05;
+    if (duration === 15) profitRate = 0.12;
+    if (duration === 30) profitRate = 0.30;
 
     const expectedProfit = parseFloat((stakeAmount * profitRate).toFixed(2));
 
-    // خصم المبلغ من رصيد المستخدم
     const user = await User.findOneAndUpdate(
       { _id: req.user.id, 'wallet.balance': { $gte: stakeAmount } },
       { $inc: { 'wallet.balance': -stakeAmount } },
@@ -481,7 +483,7 @@ app.post('/api/staking/claim', verifyToken, async (req, res) => {
   }
 });
 
-// 🏆 لوحة المتصدرين الحية (Live Leaderboard)
+// 🏆 لوحة المتصدرين الحية
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const topUsers = await User.find({ isBanned: false })
@@ -713,38 +715,29 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// 💳 الإيداع
+// 💳 الإيداع (معدل أمنياً: حالة pending لتتطلب مراجعة أو تأكيد شبكة الدفع)
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, txHash } = req.body;
     const depositNum = Number(amount);
     if (!depositNum || depositNum <= 0) {
       return res.status(400).json({ error: 'مبلغ الإيداع غير صالح' });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      {
-        $inc: {
-          'wallet.balance': depositNum,
-          'wallet.totalDeposits': depositNum
-        }
-      },
-      { new: true }
-    );
-
-    if (!updatedUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const depositTransaction = new Transaction({
-      userId: updatedUser._id,
+      userId: req.user.id,
       type: 'deposit',
       amount: depositNum,
-      walletAddress: 'System Deposit',
-      status: 'approved'
+      walletAddress: txHash || 'Manual Deposit Request',
+      status: 'pending' // حماية ضد الإضافة المباشرة للرصيد دون تأكيد
     });
     await depositTransaction.save();
 
-    res.status(200).json({ success: true, message: 'تم إيداع الرصيد بنجاح', wallet: updatedUser.wallet });
+    res.status(200).json({ 
+      success: true, 
+      message: 'تم إرسال طلب الإيداع وهو قيد المراجعة والتأكيد', 
+      transaction: depositTransaction 
+    });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
@@ -844,7 +837,6 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    // التحقق من صحة كود الـ 2FA
     if (!twoFactorCode || user.twoFactorCode !== twoFactorCode || !user.twoFactorExpire || user.twoFactorExpire < Date.now()) {
       return res.status(400).json({ error: 'رمز التحقق الثنائي (2FA) غير صحيح أو انتهت صلاحيته' });
     }
@@ -862,7 +854,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
           'wallet.balance': -withdrawNum,
           'wallet.totalWithdrawn': withdrawNum
         },
-        $set: { twoFactorCode: null, twoFactorExpire: null } // مسح الكود بعد الاستخدام الناجح
+        $set: { twoFactorCode: null, twoFactorExpire: null }
       },
       { new: true }
     );
@@ -951,7 +943,7 @@ app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
   }
 });
 
-// ✏️ تعديل بيانات مستخدم (الرصيد، المستوى، أو عنوان المحفظة من الإدارة)
+// ✏️ تعديل بيانات مستخدم من الإدارة
 app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   try {
     const { userId, balance, tierCode, walletAddress } = req.body;
@@ -969,10 +961,10 @@ app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   }
 });
 
-// 💸 جلب طلبات السحب
+// 💸 جلب طلبات السحب والإيداع المعلقة للادمن
 app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   try {
-    const withdrawals = await Transaction.find({ type: 'withdraw' })
+    const withdrawals = await Transaction.find({ type: { $in: ['withdraw', 'deposit'] } })
       .populate('userId', 'email tierCode')
       .sort({ createdAt: -1 });
     res.json({ success: true, withdrawals });
@@ -981,7 +973,7 @@ app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   }
 });
 
-// ⚙️ الموافقة أو رفض طلب سحب
+// ⚙️ الموافقة أو رفض طلب (سحب أو إيداع) من قبل الأدمن
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   try {
     const { transactionId, action } = req.body;
@@ -994,11 +986,20 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
 
     if (action === 'approve') {
       tx.status = 'approved';
+      if (tx.type === 'deposit') {
+        // إضافة الرصيد لحساب المستخدم عند موافقة الأدمن على الإيداع
+        await User.findByIdAndUpdate(tx.userId, {
+          $inc: { 'wallet.balance': tx.amount, 'wallet.totalDeposits': tx.amount }
+        });
+      }
     } else if (action === 'reject') {
       tx.status = 'rejected';
-      await User.findByIdAndUpdate(tx.userId, {
-        $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
-      });
+      if (tx.type === 'withdraw') {
+        // إعادة المبلغ لرصيد المستخدم في حالة رفض السحب
+        await User.findByIdAndUpdate(tx.userId, {
+          $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
+        });
+      }
     } else {
       return res.status(400).json({ error: 'الإجراء المطلوب غير صالح' });
     }
@@ -1038,9 +1039,7 @@ app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال العنوان والنص' });
     }
     
-    // جلب جميع المستخدمين الذين لديهم اشتراك إشعارات مفعل
     const usersWithPush = await User.find({ pushSubscription: { $ne: null } });
-    
     const payload = JSON.stringify({ title, body });
     
     let sentCount = 0;
@@ -1050,7 +1049,6 @@ app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
         sentCount++;
       } catch (pushErr) {
         console.error(`فشل إرسال إشعار للمستخدم ${user.email}:`, pushErr.message);
-        // إذا كان الاشتراك منتهي الصلاحية أو غير صالح، يمكن حذفه
         if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
           user.pushSubscription = null;
           await user.save();
