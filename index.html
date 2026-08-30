@@ -55,8 +55,8 @@
 
         <div class="glass-card p-6 rounded-3xl shadow-2xl">
             <div class="flex bg-slate-900/90 p-1.5 rounded-2xl mb-6 border border-slate-800">
-                <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all">تسجيل الدخول</button>
-                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all">حساب جديد</button>
+                <button id="tabLoginBtn" type="button" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all">تسجيل الدخول</button>
+                <button id="tabRegisterBtn" type="button" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all">حساب جديد</button>
             </div>
 
             <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
@@ -76,7 +76,7 @@
                     </button>
                 </div>
 
-                <button type="submit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
+                <button type="submit" id="btnLoginSubmit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
             </form>
 
             <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hide">
@@ -88,7 +88,7 @@
                     <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
                     <input type="password" id="regPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
                 </div>
-                <button type="submit" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">إنشاء حساب ومحفظة خاصة</button>
+                <button type="submit" id="btnRegisterSubmit" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">إنشاء حساب ومحفظة خاصة</button>
             </form>
         </div>
     </div>
@@ -107,11 +107,11 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 space-x-reverse">
-                    <button onclick="openNotificationsModal()" class="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center border border-slate-800 relative">
+                    <button type="button" onclick="openNotificationsModal()" class="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center border border-slate-800 relative">
                         <i class="fa-solid fa-bell"></i>
                         <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
                     </button>
-                    <button onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
+                    <button type="button" onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
                 </div>
             </div>
 
@@ -154,7 +154,7 @@
                     <div class="bg-slate-900 border border-slate-800 text-slate-500 py-1.5 rounded-xl">6$</div>
                     <div class="bg-purple-900/40 border border-purple-500/40 text-purple-300 py-1.5 rounded-xl font-bold">🎁 15$</div>
                 </div>
-                <button onclick="claimDailyStreak()" class="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl shadow active:scale-95 transition-all">مطالبة بمكافأة اليوم (3$)</button>
+                <button type="button" onclick="claimDailyStreak()" class="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl shadow active:scale-95 transition-all">مطالبة بمكافأة اليوم (3$)</button>
             </div>
 
             <!-- شارت الأداء -->
@@ -189,7 +189,7 @@
                 </div>
                 <div class="pt-2 border-t border-amber-500/20 flex justify-between items-center text-xs relative z-10">
                     <span class="text-slate-300">مكافأة الترقية القادمة: <b id="lblNextBonus" class="text-emerald-400">8.00 $ (4$ × 2^2)</b></span>
-                    <button onclick="upgradeTier()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs shadow">ترقية الرتبة الآن</button>
+                    <button type="button" onclick="upgradeTier()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs shadow">ترقية الرتبة الآن</button>
                 </div>
             </div>
 
@@ -249,7 +249,7 @@
                     </div>
                 </div>
 
-                <button onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
+                <button type="button" onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
                     <i class="fa-solid fa-bolt text-base"></i>
                     <span>إنجاز المهمة وإضافة الأرباح لمحفظتك</span>
                 </button>
@@ -275,7 +275,7 @@
                 </div>
                 <div class="flex space-x-2 space-x-reverse">
                     <input type="text" id="aiInput" placeholder="اكتب سؤالك هنا..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
-                    <button onclick="sendAiMessage()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                    <button type="button" onclick="sendAiMessage()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
@@ -296,8 +296,8 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="triggerLuckySpin()" class="py-3 purple-gradient text-white font-bold rounded-xl shadow-lg text-xs">تدوير العجلة</button>
-                    <button onclick="openMysteryBox()" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg text-xs">فتح صندوق مفاجئ</button>
+                    <button type="button" onclick="triggerLuckySpin()" class="py-3 purple-gradient text-white font-bold rounded-xl shadow-lg text-xs">تدوير العجلة</button>
+                    <button type="button" onclick="openMysteryBox()" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg text-xs">فتح صندوق مفاجئ</button>
                 </div>
             </div>
         </div>
@@ -310,7 +310,7 @@
                 <p class="text-xs text-slate-400">شارك رابطك أو كود الـ QR لزيادة أرباح محفظتك.</p>
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
                     <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
-                    <button onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرابط</button>
+                    <button type="button" onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرابط</button>
                 </div>
             </div>
 
@@ -427,27 +427,27 @@
 
         <!-- شريط التنقل السفلي -->
         <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-3 py-2 flex justify-between items-center z-40 bg-slate-950/90 backdrop-blur-xl">
-            <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
+            <button type="button" onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
                 <i class="fa-solid fa-house text-base"></i>
                 <span class="text-[9px] mt-1 font-bold">الرئيسية</span>
             </button>
-            <button onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+            <button type="button" onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-plane-up text-base"></i>
                 <span class="text-[9px] mt-1">يسافر</span>
             </button>
-            <button onclick="switchTab('ai')" id="nav-ai" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+            <button type="button" onclick="switchTab('ai')" id="nav-ai" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-robot text-base"></i>
                 <span class="text-[9px] mt-1">الذكاء</span>
             </button>
-            <button onclick="switchTab('spin')" id="nav-spin" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+            <button type="button" onclick="switchTab('spin')" id="nav-spin" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-dharmachakra text-base"></i>
                 <span class="text-[9px] mt-1">الحظ</span>
             </button>
-            <button onclick="switchTab('team')" id="nav-team" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+            <button type="button" onclick="switchTab('team')" id="nav-team" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-users text-base"></i>
                 <span class="text-[9px] mt-1">فريق</span>
             </button>
-            <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+            <button type="button" onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-user text-base"></i>
                 <span class="text-[9px] mt-1">ملكي</span>
             </button>
@@ -455,14 +455,14 @@
 
     </div>
 
-    <!-- نافذة استعادة كلمة المرور المضافة -->
+    <!-- نافذة استعادة كلمة المرور -->
     <div id="forgotPasswordModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/40 shadow-2xl relative">
             <div class="flex justify-between items-center">
                 <h3 class="text-base font-bold text-white flex items-center">
                     <i class="fa-solid fa-key text-amber-400 ml-2"></i> استعادة حسابك
                 </h3>
-                <button onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-white">
+                <button type="button" onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-white">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
@@ -473,19 +473,19 @@
                 <div>
                     <input type="email" id="resetEmail" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="name@example.com">
                 </div>
-                <button type="submit" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">إرسال رمز التحقق</button>
+                <button type="submit" id="btnSendOtp" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs active:scale-95 transition-all">إرسال رمز التحقق</button>
             </form>
 
             <!-- الخطوة 2: إدخال الرمز وكلمة المرور الجديدة -->
             <form id="resetConfirmForm" onsubmit="handleResetConfirm(event)" class="space-y-3 hide">
                 <p class="text-xs text-emerald-400 font-bold">تم إرسال الرمز! أدخل الرمز وكلمة المرور الجديدة:</p>
                 <div>
-                    <input type="text" id="resetOtp" required maxlength="6" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-sm font-bold tracking-widest text-amber-400 focus:outline-none focus:border-amber-500" placeholder="1 2 3 4 5 6">
+                    <input type="text" id="resetOtp" required maxlength="6" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-sm font-bold tracking-widest text-amber-400 focus:outline-none focus:border-amber-500" placeholder="123456">
                 </div>
                 <div>
                     <input type="password" id="resetNewPassword" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="كلمة المرور الجديدة">
                 </div>
-                <button type="submit" class="w-full py-3 purple-gradient text-white font-bold rounded-xl text-xs">تحديث كلمة المرور والدخول</button>
+                <button type="submit" id="btnResetSubmit" class="w-full py-3 purple-gradient text-white font-bold rounded-xl text-xs active:scale-95 transition-all">تحديث كلمة المرور والدخول</button>
             </form>
         </div>
     </div>
@@ -498,14 +498,14 @@
                     <div class="w-8 h-8 rounded-xl emerald-gradient flex items-center justify-center text-white text-xs"><i class="fa-solid fa-wallet"></i></div>
                     <h3 class="text-base font-bold text-white">إيداع وشحن محفظتك</h3>
                 </div>
-                <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeDepositModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3 relative z-10">
                 <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 text-center space-y-1">
                     <span class="text-xs text-slate-400 block">قيمة شحن المحفظة</span>
                     <span class="text-2xl font-black text-emerald-400">150.00$ <span class="text-xs font-normal text-slate-400">USDT</span></span>
                 </div>
-                <button onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
+                <button type="button" onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
                     تأكيد إيداع 150$ لمحفظتك الشخصية
                 </button>
             </div>
@@ -517,7 +517,7 @@
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
             <div class="flex justify-between items-center">
                 <h3 class="text-base font-bold text-white">سحب رصيد المحفظة</h3>
-                <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">المبلغ المراد سحبه (USDT)</label>
@@ -527,7 +527,7 @@
                 <label class="block text-xs text-slate-400 mb-1">عنوان محفظة TRC20</label>
                 <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="T...">
             </div>
-            <button onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
+            <button type="button" onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
         </div>
     </div>
 
@@ -536,7 +536,7 @@
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
             <div class="flex justify-between items-center">
                 <h3 class="text-base font-bold text-white flex items-center"><i class="fa-solid fa-bell text-amber-400 ml-2"></i> مركز الإشعارات الفورية</h3>
-                <button onclick="closeNotificationsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeNotificationsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-2 text-xs">
                 <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
@@ -589,7 +589,7 @@
             const toast = document.getElementById('toast');
             toast.innerText = msg;
             toast.classList.remove('hide');
-            setTimeout(() => toast.classList.add('hide'), 3000);
+            setTimeout(() => toast.classList.add('hide'), 3500);
         }
 
         function toggleSound(el) { soundEnabled = el.checked; }
@@ -609,8 +609,12 @@
             }
         }
 
-        // --- وظائف استعادة كلمة المرور ---
+        // --- وظائف استعادة كلمة المرور المحدثة مع زر التنبيه المباشر ---
         function openForgotPasswordModal() {
+            const loginEmail = document.getElementById('loginEmail').value;
+            if(loginEmail) {
+                document.getElementById('resetEmail').value = loginEmail;
+            }
             document.getElementById('forgotPasswordModal').classList.remove('hide');
             document.getElementById('resetRequestForm').classList.remove('hide');
             document.getElementById('resetConfirmForm').classList.add('hide');
@@ -622,7 +626,17 @@
 
         async function handleResetRequest(e) {
             e.preventDefault();
-            const email = document.getElementById('resetEmail').value;
+            const email = document.getElementById('resetEmail').value.trim();
+            const btn = document.getElementById('btnSendOtp');
+
+            if(!email) {
+                showToast('يرجى إدخال البريد الإلكتروني');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'جاري الإرسال...';
+
             try {
                 const res = await fetch('/api/auth/forgot-password', {
                     method: 'POST',
@@ -631,22 +645,35 @@
                 });
                 const data = await res.json();
                 if(res.ok) {
-                    showToast('تم إرسال رمز التحقق إلى بريدك الإلكتروني', 'win');
+                    showToast('✅ تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح', 'win');
                     document.getElementById('resetRequestForm').classList.add('hide');
                     document.getElementById('resetConfirmForm').classList.remove('hide');
                 } else {
-                    showToast(data.error || 'البريد الإلكتروني غير مسجل');
+                    showToast('❌ ' + (data.error || 'فشل إرسال الرمز'));
                 }
             } catch(err) {
-                showToast('خطأ في الاتصال بالخادم');
+                console.error(err);
+                showToast('❌ خطأ في الاتصال بالخادم');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'إرسال رمز التحقق';
             }
         }
 
         async function handleResetConfirm(e) {
             e.preventDefault();
-            const email = document.getElementById('resetEmail').value;
-            const otp = document.getElementById('resetOtp').value;
+            const email = document.getElementById('resetEmail').value.trim();
+            const otp = document.getElementById('resetOtp').value.trim();
             const newPassword = document.getElementById('resetNewPassword').value;
+            const btn = document.getElementById('btnResetSubmit');
+
+            if(!otp || !newPassword) {
+                showToast('يرجى ملء جميع الحقول المطلوبة');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'جاري التحديث...';
 
             try {
                 const res = await fetch('/api/auth/reset-password', {
@@ -656,21 +683,31 @@
                 });
                 const data = await res.json();
                 if(res.ok) {
-                    showToast('تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول', 'win');
+                    showToast('🎉 تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول', 'win');
                     closeForgotPasswordModal();
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = '';
                 } else {
-                    showToast(data.error || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
+                    showToast('❌ ' + (data.error || 'رمز التحقق غير صحيح أو منتهي الصلاحية'));
                 }
             } catch(err) {
-                showToast('خطأ في الاتصال بالخادم');
+                console.error(err);
+                showToast('❌ خطأ في الاتصال بالخادم');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'تحديث كلمة المرور والدخول';
             }
         }
-        // ------------------------------------
 
         async function handleLogin(e) {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
+            const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('btnLoginSubmit');
+
+            btn.disabled = true;
+            btn.innerText = 'جاري الدخول...';
+
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -678,7 +715,7 @@
                     body: JSON.stringify({email, password})
                 });
                 const data = await res.json();
-                if(res.ok) {
+                if(res.ok && data.token) {
                     localStorage.setItem('token', data.token);
                     showToast('تم تسجيل الدخول بنجاح وحماية المحفظة');
                     loadUserProfile();
@@ -687,13 +724,21 @@
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال بالخادم');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'دخول المنصة';
             }
         }
 
         async function handleRegister(e) {
             e.preventDefault();
-            const email = document.getElementById('regEmail').value;
+            const email = document.getElementById('regEmail').value.trim();
             const password = document.getElementById('regPassword').value;
+            const btn = document.getElementById('btnRegisterSubmit');
+
+            btn.disabled = true;
+            btn.innerText = 'جاري إنشاء الحساب...';
+
             try {
                 const res = await fetch('/api/auth/register', {
                     method: 'POST',
@@ -704,11 +749,15 @@
                 if(res.ok) {
                     showToast('تم إنشاء الحساب والمحفظة بنجاح، يرجى الدخول');
                     switchAuthTab('login');
+                    document.getElementById('loginEmail').value = email;
                 } else {
                     showToast(data.error || 'خطأ في التسجيل');
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'إنشاء حساب ومحفظة خاصة';
             }
         }
 
@@ -720,14 +769,14 @@
                     headers: {'Authorization': `Bearer ${token}`}
                 });
                 const data = await res.json();
-                if(res.ok) {
+                if(res.ok && data.user) {
                     document.getElementById('authView').classList.add('hide');
                     document.getElementById('appView').classList.remove('hide');
                     document.getElementById('liveTickerBar').classList.remove('hide');
                     
                     document.getElementById('lblUserEmail').innerText = data.user.email;
                     document.getElementById('lblProfileEmail').innerText = data.user.email;
-                    document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks;
+                    document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks || 0;
                     document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
                     
                     const wallet = data.user.wallet || { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
@@ -736,7 +785,7 @@
                     document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
 
                     let maxTasks = 33;
-                    let percent = (data.user.todayCompletedTasks / maxTasks) * 100;
+                    let percent = ((data.user.todayCompletedTasks || 0) / maxTasks) * 100;
                     document.getElementById('taskProgressBar').style.width = `${percent > 100 ? 100 : percent}%`;
                     document.getElementById('lblProgressPercent').innerText = `${Math.round(percent > 100 ? 100 : percent)}%`;
                     updateTierDisplay();
