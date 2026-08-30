@@ -243,7 +243,7 @@
 
             <!-- قائمة المستويات A1 -> A5 -->
             <div id="tiersListContainer" class="space-y-4">
-                <!-- سيتم إنشاؤها عبر الـ JavaScript بحرفية عالية -->
+                <!-- سيتم إنشاؤها عبر الـ JavaScript -->
             </div>
         </div>
 
@@ -572,7 +572,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">عنوان محفظة TRC20 المثبت</label>
-                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed" placeholder="T...">
+                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed" placeholder="أدخل العنوان أولاً من الملف الشخصي">
                 <div id="walletStatusContainerWithdraw"></div>
             </div>
 
@@ -663,7 +663,6 @@
             initPushNotifications();
         });
 
-        // دالة إنشاء كروت المستويات ديناميكياً وبشكل احترافي
         function renderTiersList() {
             const container = document.getElementById('tiersListContainer');
             if (!container) return;
@@ -1296,9 +1295,14 @@
 
         async function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
-            const walletAddress = document.getElementById('withdrawWallet').value;
+            const walletAddress = document.getElementById('withdrawWallet').value.trim();
             const twoFactorCode = document.getElementById('withdraw2faCode').value.trim();
             const token = localStorage.getItem('token');
+
+            if (!walletAddress) {
+                showToast('يرجى تثبيت عنوان المحفظة أولاً من الملف الشخصي');
+                return;
+            }
 
             if (!twoFactorCode) {
                 showToast('يرجى إدخال رمز التحقق الثنائي (2FA)');
