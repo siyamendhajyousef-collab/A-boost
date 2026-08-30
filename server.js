@@ -63,6 +63,19 @@ if (!MONGO_URI) {
 
 // ==================== 2. نماذج قاعدة البيانات (Models) ====================
 
+const vipLevelSchema = new mongoose.Schema({
+  code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  tasks: { type: Number, required: true },
+  dailyProfit: { type: Number, required: true },
+  monthlyProfit: { type: Number, required: true },
+  yearlyProfit: { type: Number, required: true },
+  badgeColor: { type: String, default: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' }
+}, { timestamps: true });
+
+const VipLevel = mongoose.model('VipLevel', vipLevelSchema);
+
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -111,9 +124,30 @@ const stakingSchema = new mongoose.Schema({
 
 const Staking = mongoose.model('Staking', stakingSchema);
 
+// دالة تهيئة مستويات VIP الافتراضية
+async function seedVipLevels() {
+  try {
+    const count = await VipLevel.countDocuments();
+    if (count === 0) {
+      const defaultLevels = [
+        { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
+        { code: 'A2', name: 'المستوى A2 المتقدم', price: 150, tasks: 35, dailyProfit: 8.00, monthlyProfit: 240.00, yearlyProfit: 2920.00, badgeColor: 'from-blue-500/20 to-cyan-700/20 border-blue-500/40 text-blue-400' },
+        { code: 'A3', name: 'المستوى A3 الخبير', price: 350, tasks: 40, dailyProfit: 20.00, monthlyProfit: 600.00, yearlyProfit: 7300.00, badgeColor: 'from-purple-500/20 to-indigo-700/20 border-purple-500/40 text-purple-400' },
+        { code: 'A4', name: 'المستوى A4 المحترف', price: 750, tasks: 45, dailyProfit: 45.00, monthlyProfit: 1350.00, yearlyProfit: 16425.00, badgeColor: 'from-rose-500/20 to-pink-700/20 border-rose-500/40 text-rose-400' },
+        { code: 'A5', name: 'المستوى A5 الخارق (VIP)', price: 1500, tasks: 50, dailyProfit: 100.00, monthlyProfit: 3000.00, yearlyProfit: 36500.00, badgeColor: 'from-emerald-500/20 to-teal-700/20 border-emerald-500/40 text-emerald-400' }
+      ];
+      await VipLevel.insertMany(defaultLevels);
+      console.log('🌟 تم إنشاء مستويات VIP الافتراضية بنجاح في قاعدة البيانات');
+    }
+  } catch (err) {
+    console.error('⚠️ خطأ أثناء تهيئة مستويات VIP:', err.message);
+  }
+}
+
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح على Railway');
+    await seedVipLevels();
     try {
       const adminUser = await User.findOneAndUpdate(
         { email: 'asspetmax@gmail.com' },
@@ -175,7 +209,17 @@ const verifyAdmin = async (req, res, next) => {
 };
 
 
-// ==================== 4. المسارات (API Routes) ====================
+// ==================== 4. المسارات العامة (Public & User APIs) ====================
+
+// 💎 مسار جلب قائمة مستويات VIP للواجهة (عام)
+app.get('/api/vip-levels', async (req, res) => {
+  try {
+    const levels = await VipLevel.find().sort({ price: 1 });
+    res.status(200).json(levels);
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ في جلب مستويات VIP: ' + err.message });
+  }
+});
 
 // 🤖 مسار المستشار الذكي (Ag AI Advisor)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
@@ -250,27 +294,27 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 // 🚀 مسار ترقية المستوى (Upgrade Tier)
 app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   try {
+    const { targetTier } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const tiers = ['A1', 'A2', 'A3', 'A4', 'A5'];
-    const currentIndex = tiers.indexOf(user.tierCode);
+    const levels = await VipLevel.find().sort({ price: 1 });
+    const levelCodes = levels.map(l => l.code);
 
-    if (currentIndex === -1 || currentIndex === tiers.length - 1) {
-      return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
+    let nextTier = targetTier;
+    if (!nextTier) {
+      const currentIndex = levelCodes.indexOf(user.tierCode);
+      if (currentIndex === -1 || currentIndex === levelCodes.length - 1) {
+        return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
+      }
+      nextTier = levelCodes[currentIndex + 1];
     }
 
-    const nextTier = tiers[currentIndex + 1];
-
     const updatedUser = await User.findOneAndUpdate(
-      { _id: req.user.id, tierCode: user.tierCode },
+      { _id: req.user.id },
       { $set: { tierCode: nextTier } },
       { new: true }
     );
-
-    if (!updatedUser) {
-      return res.status(400).json({ error: 'حدثت تغييرات في الجلسة، يرجى المحاولة مرة أخرى' });
-    }
 
     res.status(200).json({ success: true, message: 'تمت الترقية بنجاح', tierCode: updatedUser.tierCode });
   } catch (err) {
@@ -676,17 +720,17 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// ✅ إكمال المهام وتحديث الأرباح
+// ✅ إكمال المهام وتحديث الأرباح (ديناميكي وفق بيانات مستوى الـ VIP)
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const tierLimits = { 'A1': 33, 'A2': 35, 'A3': 40, 'A4': 45, 'A5': 50 };
-    const tierCommissions = { 'A1': 0.0346, 'A2': 0.0755, 'A3': 0.1518, 'A4': 0.3333, 'A5': 0.7571 };
-    
-    const maxTasks = tierLimits[user.tierCode] || 33;
-    const commission = tierCommissions[user.tierCode] || 0.0346;
+    // جلب بيانات المستوى الحالي من DB ديناميكيًا
+    const vipLevel = await VipLevel.findOne({ code: user.tierCode });
+    const maxTasks = vipLevel ? vipLevel.tasks : 33;
+    const dailyProfit = vipLevel ? vipLevel.dailyProfit : 2.50;
+    const commission = parseFloat((dailyProfit / maxTasks).toFixed(4));
 
     const updatedUser = await User.findOneAndUpdate(
       { _id: req.user.id, todayCompletedTasks: { $lt: maxTasks } },
@@ -818,9 +862,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 طلب السحب (البريد الأول: إشعار بتقديم الطلب وقيد المراجعة)
-const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
-
+// 💸 طلب السحب
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   try {
     const { amount, walletAddress, twoFactorCode } = req.body;
@@ -841,7 +883,8 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'رمز التحقق الثنائي (2FA) غير صحيح أو انتهت صلاحيته' });
     }
 
-    const maxLimit = maxWithdrawLimits[user.tierCode] || 15;
+    const vipLevel = await VipLevel.findOne({ code: user.tierCode });
+    const maxLimit = vipLevel ? (vipLevel.price * 0.3) : 15;
 
     if (withdrawNum > maxLimit) {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
@@ -945,6 +988,52 @@ app.get('/my-secret-admin-panel-99', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
+// 💎 إضافة أو تعديل مستوى VIP من الأدمن
+app.post('/api/admin/vip-levels', verifyAdmin, async (req, res) => {
+  try {
+    const { code, name, price, tasks, dailyProfit, monthlyProfit, yearlyProfit, badgeColor } = req.body;
+
+    if (!code || !name || price === undefined || !tasks || dailyProfit === undefined) {
+      return res.status(400).json({ error: 'يرجى إدخال جميع البيانات الأساسية للمستوى' });
+    }
+
+    const levelData = {
+      code: code.trim().toUpperCase(),
+      name,
+      price: Number(price),
+      tasks: Number(tasks),
+      dailyProfit: Number(dailyProfit),
+      monthlyProfit: monthlyProfit ? Number(monthlyProfit) : (Number(dailyProfit) * 30),
+      yearlyProfit: yearlyProfit ? Number(yearlyProfit) : (Number(dailyProfit) * 365),
+      badgeColor: badgeColor || 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400'
+    };
+
+    const updatedLevel = await VipLevel.findOneAndUpdate(
+      { code: levelData.code },
+      levelData,
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, message: 'تم حفظ المستوى بنجاح', level: updatedLevel });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
+// 🗑️ حذف مستوى VIP من الأدمن
+app.delete('/api/admin/vip-levels/:code', verifyAdmin, async (req, res) => {
+  try {
+    const { code } = req.params;
+    const deleted = await VipLevel.findOneAndDelete({ code: code.toUpperCase() });
+    if (!deleted) {
+      return res.status(404).json({ error: 'المستوى غير موجود' });
+    }
+    res.json({ success: true, message: 'تم حذف المستوى بنجاح' });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
 // 📊 الإحصائيات العامة
 app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
   try {
@@ -1020,7 +1109,7 @@ app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   }
 });
 
-// 💸 جلب طلبات السحب والإيداع المعلقة للادمن
+// 💸 جلب طلبات السحب والإيداع المعلقة للأدمن
 app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   try {
     const withdrawals = await Transaction.find({ type: { $in: ['withdraw', 'deposit'] } })
@@ -1032,7 +1121,7 @@ app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   }
 });
 
-// ⚙️ الموافقة أو رفض طلب (سحب أو إيداع) + إرسال بريد بإتمام العملية بنجاح عند الموافقة
+// ⚙️ الموافقة أو رفض طلب (سحب أو إيداع)
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   try {
     const { transactionId, action } = req.body;
@@ -1053,7 +1142,6 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
         });
       }
 
-      // 📧 إرسال بريد إشعار ثانٍ عند اكتمال وإتمام عملية السحب بنجاح
       if (tx.type === 'withdraw' && user && user.email) {
         try {
           const completedDate = new Date().toLocaleString('ar-EG', { timeZone: 'UTC' });
