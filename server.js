@@ -68,7 +68,9 @@ const userSchema = new mongoose.Schema({
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
   referralCode: { type: String, unique: true },
+  referredBy: { type: String, default: null },
   walletAddress: { type: String, default: '' },
+  isBanned: { type: Boolean, default: false }, // 👈 حقل الحظر
   wallet: {
     balance: { type: Number, default: 0 },
     totalDeposits: { type: Number, default: 0 },
@@ -93,7 +95,7 @@ const Transaction = mongoose.model('Transaction', transactionSchema);
 
 // ==================== 3. موسط الحماية (Middleware) ====================
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(403).json({ error: 'مطلوب توكن المصادقة' });
   
@@ -102,6 +104,12 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // التحقق الفوري من حالة الحظر قبل السماح بمرور أي طلب
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+    if (user.isBanned) return res.status(403).json({ error: 'تم تعليق حسابك من قبل الإدارة. يرجى التواصل مع الدعم الفني.' });
+
     req.user = decoded;
     next();
   } catch (err) {
@@ -233,7 +241,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
 // تسجيل مستخدم جديد
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, referralCode } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
     }
@@ -244,12 +252,13 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const referralCode = 'BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90);
+    const newReferralCode = 'BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90);
 
     const newUser = new User({ 
       email, 
       password: hashedPassword, 
-      referralCode,
+      referralCode: newReferralCode,
+      referredBy: referralCode || null,
       wallet: { balance: 0, totalDeposits: 0, totalWithdrawn: 0 }
     });
     await newUser.save();
@@ -259,7 +268,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// تسجيل الدخول
+// تسجيل الدخول مع فحص الحظر
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -267,6 +276,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) {
       return res.status(400).json({ error: 'البريد الإلكتروني غير مسجل' });
     }
+
+    if (user.isBanned) {
+      return res.status(403).json({ error: 'حسابك معطل حالياً من قبل الإدارة. يرجى التواصل مع الدعم.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'كلمة المرور غير صحيحة' });
@@ -619,6 +633,23 @@ app.get('/api/admin/users', verifyAdmin, async (req, res) => {
   }
 });
 
+// 🚫 مسار حظر أو إلغاء حظر مستخدم
+app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
+  try {
+    const { userId, isBanned } = req.body;
+    const user = await User.findByIdAndUpdate(userId, { isBanned }, { new: true });
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    res.json({
+      success: true,
+      message: isBanned ? 'تم حظر المستخدم بنجاح' : 'تم إلغاء حظر المستخدم بنجاح',
+      user
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
 // ✏️ تعديل بيانات مستخدم (الرصيد أو المستوى)
 app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   try {
@@ -699,7 +730,6 @@ app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال العنوان والنص' });
     }
     
-    // إرجاع نجاح العملية لمطابقة الواجهة
     res.json({ success: true, message: 'تم إرسال البث بنجاح' });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
