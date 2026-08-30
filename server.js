@@ -43,8 +43,8 @@ const userSchema = new mongoose.Schema({
   tierCode: { type: String, default: 'A1' },
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
-  referralCode: { type: String, unique: true },
-  referredBy: { type: String, default: null },
+  referralCode: { type: String, unique: true, uppercase: true, trim: true },
+  referredBy: { type: String, default: null, uppercase: true, trim: true },
   walletAddress: { type: String, default: '' },
   isBanned: { type: Boolean, default: false },
   wallet: {
@@ -274,21 +274,25 @@ app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
   }
 });
 
-// 🌳 مسار جلب شجرة الفريق (الإحالات)
+// 🌳 مسار جلب شجرة الفريق (الإحالات) - [تم تصحيحه لضمان مطابقة الكود بدقة]
 app.get('/api/user/referrals', verifyToken, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     if (!currentUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    // البحث بالاعتماد على referralCode الخاص بالمستخدم الحالي
-    const referrals = await User.find({ referredBy: currentUser.referralCode })
+    const userCode = currentUser.referralCode ? currentUser.referralCode.trim().toUpperCase() : '';
+
+    // البحث عن كل المستخدمين الذين تم إدخال كود هذا المستخدم كـ referredBy بغض النظر عن حالة الأحرف
+    const referrals = await User.find({ 
+      referredBy: { $regex: new RegExp(`^${userCode}$`, 'i') } 
+    })
       .select('email tierCode createdAt wallet.balance')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       referralCode: currentUser.referralCode,
-      referredBy: currentUser.referredBy || null, // تم إضافة حقل من دعا المستخدم لتعزيز الشفافية
+      referredBy: currentUser.referredBy || null,
       totalReferrals: referrals.length,
       referrals
     });
@@ -297,7 +301,7 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
   }
 });
 
-// 📝 تسجيل مستخدم جديد (مُعدل للتعامل مع كود الإحالة بشكل مرن وبحث دقيق)
+// 📝 تسجيل مستخدم جديد - [تم تصحيحه لضمان جلب والتحقق من كود الإحالة وحفظه بالأحرف الكبيرة]
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, referralCode } = req.body;
@@ -312,22 +316,24 @@ app.post('/api/auth/register', async (req, res) => {
 
     let validReferralCode = null;
     if (referralCode && typeof referralCode === 'string' && referralCode.trim() !== '') {
-      const cleanCode = referralCode.trim();
-      // التحقق مما إذا كان كود الإحالة موجوداً لأي مستخدم مسبقاً في النظام
-      const referrerUser = await User.findOne({ referralCode: cleanCode });
+      const cleanCode = referralCode.trim().toUpperCase();
+      // بحث مرن عن المُحيل بغض النظر عن حالة الأحرف
+      const referrerUser = await User.findOne({ 
+        referralCode: { $regex: new RegExp(`^${cleanCode}$`, 'i') } 
+      });
       if (referrerUser) {
         validReferralCode = referrerUser.referralCode;
       }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newReferralCode = 'BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90);
+    const newReferralCode = ('BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90)).toUpperCase();
 
     const newUser = new User({ 
       email, 
       password: hashedPassword, 
       referralCode: newReferralCode,
-      referredBy: validReferralCode, // سيتم تخزين كود الإحالة الصحيح هنا أو null
+      referredBy: validReferralCode, 
       wallet: { balance: 0, totalDeposits: 0, totalWithdrawn: 0 }
     });
     
@@ -778,7 +784,7 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     if (action === 'approve') {
       tx.status = 'approved';
     } else if (action === 'reject') {
-      tx.status, 'rejected';
+      tx.status = 'rejected';
       await User.findByIdAndUpdate(tx.userId, {
         $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
       });
