@@ -280,6 +280,7 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.user.id);
     if (!currentUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
+    // البحث بالاعتماد على referralCode الخاص بالمستخدم الحالي
     const referrals = await User.find({ referredBy: currentUser.referralCode })
       .select('email tierCode createdAt wallet.balance')
       .sort({ createdAt: -1 });
@@ -287,6 +288,7 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
     res.status(200).json({
       success: true,
       referralCode: currentUser.referralCode,
+      referredBy: currentUser.referredBy || null, // تم إضافة حقل من دعا المستخدم لتعزيز الشفافية
       totalReferrals: referrals.length,
       referrals
     });
@@ -295,7 +297,7 @@ app.get('/api/user/referrals', verifyToken, async (req, res) => {
   }
 });
 
-// 📝 تسجيل مستخدم جديد
+// 📝 تسجيل مستخدم جديد (مُعدل للتعامل مع كود الإحالة بشكل مرن وبحث دقيق)
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, referralCode } = req.body;
@@ -308,6 +310,16 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'البريد الإلكتروني مسجل بالفعل' });
     }
 
+    let validReferralCode = null;
+    if (referralCode && typeof referralCode === 'string' && referralCode.trim() !== '') {
+      const cleanCode = referralCode.trim();
+      // التحقق مما إذا كان كود الإحالة موجوداً لأي مستخدم مسبقاً في النظام
+      const referrerUser = await User.findOne({ referralCode: cleanCode });
+      if (referrerUser) {
+        validReferralCode = referrerUser.referralCode;
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newReferralCode = 'BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90);
 
@@ -315,9 +327,10 @@ app.post('/api/auth/register', async (req, res) => {
       email, 
       password: hashedPassword, 
       referralCode: newReferralCode,
-      referredBy: referralCode || null,
+      referredBy: validReferralCode, // سيتم تخزين كود الإحالة الصحيح هنا أو null
       wallet: { balance: 0, totalDeposits: 0, totalWithdrawn: 0 }
     });
+    
     await newUser.save();
     res.status(201).json({ success: true, message: 'تم إنشاء الحساب بنجاح' });
   } catch (err) {
@@ -765,7 +778,7 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     if (action === 'approve') {
       tx.status = 'approved';
     } else if (action === 'reject') {
-      tx.status = 'rejected';
+      tx.status, 'rejected';
       await User.findByIdAndUpdate(tx.userId, {
         $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
       });
@@ -776,7 +789,7 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     await tx.save();
     res.json({ success: true, message: `تمت عملية (${action === 'approve' ? 'الموافقة' : 'الرفض'}) بنجاح` });
   } catch (err) {
-    res.status(500).json({ error: '`خطأ تقني: ` + err.message' });
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
   }
 });
 
