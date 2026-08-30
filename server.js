@@ -473,6 +473,21 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   }
 });
 
+// 📜 جلب سجل المعاملات المالية للمستخدم الحالي (جديد)
+app.get('/api/transactions/my-history', verifyToken, async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.user.id })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      transactions
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني في جلب السجل: ' + err.message });
+  }
+});
+
 // 🎡 عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   try {
