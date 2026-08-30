@@ -24,7 +24,7 @@
 
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
 
-    <!-- شاشة التحميل السريعة لمنع الفلاش -->
+    <!-- شاشة التحميل السريعة -->
     <div id="loadingView" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center space-y-4">
         <div class="w-16 h-16 gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 animate-bounce">
             <i class="fa-solid fa-bolt-lightning text-3xl text-slate-950"></i>
@@ -32,7 +32,7 @@
         <p class="text-xs text-amber-400 font-bold animate-pulse">جاري التحقق من الجلسة...</p>
     </div>
 
-    <!-- شريط التنبيهات الحية المتحرك -->
+    <!-- شريط التنبيهات الحية -->
     <div id="liveTickerBar" class="bg-slate-950 border-b border-slate-800/80 py-2 px-3 overflow-hidden text-xs text-amber-400 flex items-center shadow-inner relative z-30 hide">
         <div class="flex items-center space-x-2 space-x-reverse ml-3 shrink-0 bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/30 text-amber-300">
             <i class="fa-solid fa-satellite-dish animate-pulse"></i>
@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    <!-- شاشة الدخول والتسجيل (مخفية افتراضياً لمنع الفلاش) -->
+    <!-- شاشة الدخول والتسجيل -->
     <div id="authView" class="p-6 mt-8 hide">
         <div class="text-center mb-8">
             <div class="w-20 h-20 mx-auto gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 mb-4">
@@ -281,7 +281,7 @@
                     </div>
                 </div>
                 <div class="flex space-x-2 space-x-reverse">
-                    <input type="text" id="aiInput" placeholder="اكتب سؤالك هنا..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <input type="text" id="aiInput" placeholder="اكتب سؤالك هنا..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendAiMessage()">
                     <button type="button" onclick="sendAiMessage()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
@@ -788,6 +788,10 @@
                     document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks || 0;
                     document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
                     
+                    if(data.user.level) {
+                        currentLevel = data.user.level;
+                    }
+
                     const wallet = data.user.wallet || { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
                     document.getElementById('lblWalletBalance').innerText = Number(wallet.balance || 0).toFixed(2);
                     document.getElementById('lblTotalDeposits').innerText = Number(wallet.totalDeposits || 0).toFixed(2) + ' $';
@@ -815,10 +819,29 @@
         }
 
         async function upgradeTier() {
-            currentLevel++;
-            let bonusAmount = 4 * Math.pow(2, currentLevel - 1);
-            updateTierDisplay();
-            showToast(`مبروك! ترقيت للمستوى ${currentLevel} وححصلت على مكافأة ${bonusAmount}$ فوريّة!`, 'upgrade');
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/user/upgrade', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    currentLevel = data.newLevel || (currentLevel + 1);
+                    updateTierDisplay();
+                    showToast(`مبروك! ترقيت للمستوى ${currentLevel} وحصلت على المكافأة!`, 'upgrade');
+                    loadUserProfile();
+                } else {
+                    showToast('❌ ' + (data.error || 'فشلت عملية الترقية'));
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('❌ خطأ في الاتصال بالخادم');
+            }
         }
 
         async function completeTask() {
@@ -853,26 +876,49 @@
             showToast('🎁 مبروك! فتحت صندوقاً مفاجئاً واكتشفت مكافأة 10.00$ أضيفت لمحفظتك!', 'win');
         }
 
-        function sendAiMessage() {
+        async function sendAiMessage() {
             const input = document.getElementById('aiInput');
             const chatBox = document.getElementById('aiChatBox');
             const query = input.value.trim();
-            if(!query) return;
+            const token = localStorage.getItem('token');
+
+            if (!query) return;
 
             chatBox.innerHTML += `<div class="bg-blue-950/40 p-3 rounded-xl border border-blue-900 text-white text-right">أنت: ${query}</div>`;
             input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
 
-            setTimeout(() => {
-                let reply = "بناءً على تحليلي لحسابك، أنصحك بمتابعة إنجاز المهام اليومية وترقية مستواك للاستفادة من مكافآت 4$ المتضاعفة!";
-                if(query.includes('أرباح') || query.includes('كم')) {
-                    reply = `مستواك الحالي هو A${currentLevel}، ومكافأة ترقيتك القادمة هي ${4 * Math.pow(2, currentLevel)} دولار تضاف فوراً لرصيدك.`;
-                } else if(query.includes('سحب')) {
-                    reply = "عمليات السحب متاحة عبر شبكة TRC20 وتتم معالجتها آلياً وبأمان تام خلال دقائق.";
+            const loadingId = 'ai-loading-' + Date.now();
+            chatBox.innerHTML += `<div id="${loadingId}" class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-400 animate-pulse">Ag AI: جاري التفكير والتحليل...</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ message: query })
+                });
+
+                const data = await res.json();
+                const loadingEl = document.getElementById(loadingId);
+
+                if (res.ok && data.reply) {
+                    loadingEl.outerHTML = `<div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">Ag AI: ${data.reply}</div>`;
+                    playBeep('win');
+                } else {
+                    loadingEl.outerHTML = `<div class="bg-rose-950/40 p-3 rounded-xl border border-rose-900 text-rose-300">Ag AI: ${data.error || 'عذراً، حدث خطأ في معالجة الطلب.'}</div>`;
                 }
-                chatBox.innerHTML += `<div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">Ag AI: ${reply}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-                playBeep();
-            }, 800);
+            } catch (err) {
+                console.error(err);
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) {
+                    loadingEl.outerHTML = `<div class="bg-rose-950/40 p-3 rounded-xl border border-rose-900 text-rose-300">Ag AI: تعذر الاتصال بالخادم.</div>`;
+                }
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         function switchTab(tabName) {
