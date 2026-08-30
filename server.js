@@ -196,14 +196,6 @@ async function seedVipLevels() {
   }
 }
 
-mongoose.connect(MONGO_URI)
-  .then(async () => {
-    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح');
-    await seedVipLevels();
-  })
-  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات MongoDB:', err));
-
-
 // ==================== 3. موسط الحماية (Middleware) ====================
 
 const verifyToken = async (req, res, next) => {
@@ -247,7 +239,6 @@ const verifyAdmin = async (req, res, next) => {
     return res.status(401).json({ error: 'جلسة غير صالحة أو انتهت الصلاحية' });
   }
 };
-
 
 // ==================== 4. المسارات العامة (Public & User APIs) ====================
 
@@ -832,13 +823,19 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
   }
 });
 
-// ✅ إكمال المهام وتحديث الأرباح
+// ✅ إكمال المهام وتحديث الأرباح (محمية ضد Race Conditions)
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+    session.startTransaction();
+    const user = await User.findById(req.user.id).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
 
-    const vipLevel = await VipLevel.findOne({ code: user.tierCode });
+    const vipLevel = await VipLevel.findOne({ code: user.tierCode }).session(session);
     const maxTasks = vipLevel ? vipLevel.tasks : 33;
     const dailyProfit = vipLevel ? vipLevel.dailyProfit : 2.50;
     const commission = parseFloat((dailyProfit / maxTasks).toFixed(4));
@@ -852,12 +849,17 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
           todayCompletedTasks: 1
         }
       },
-      { new: true }
+      { new: true, session }
     ).select('-password');
 
     if (!updatedUser) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
     }
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({ 
       success: true, 
@@ -866,6 +868,8 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
       completed: updatedUser.todayCompletedTasks 
     });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
   }
 });
@@ -1129,7 +1133,6 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
   }
 });
-
 
 // ==================== 5. مسارات الإدارة (Admin APIs) ====================
 
@@ -1444,13 +1447,24 @@ app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
   }
 });
 
-
 // ==================== 6. تشغيل الخادم والإنهاء الآمن ====================
 
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
-});
+let server;
+
+mongoose.connect(MONGO_URI)
+  .then(async () => {
+    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح');
+    await seedVipLevels();
+
+    server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ خطأ حرج في الاتصال بقاعدة البيانات MongoDB:', err);
+    process.exit(1);
+  });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('⚠️ Unhandled Rejection:', reason);
@@ -1462,9 +1476,13 @@ process.on('uncaughtException', (error) => {
 
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    mongoose.connection.close(false, () => {
-      process.exit(0);
+  if (server) {
+    server.close(() => {
+      mongoose.connection.close(false, () => {
+        process.exit(0);
+      });
     });
-  });
+  } else {
+    process.exit(0);
+  }
 });
