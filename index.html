@@ -40,7 +40,7 @@
         </div>
         <div class="overflow-hidden relative w-full flex">
             <div class="animate-ticker space-x-8 space-x-reverse text-slate-300">
-                <span>🔥 مكافآت الترقية المتضاعفة مفعلة: (4$ × 2^Level)</span>
+                <span>🔥 مكافآت الترقية المتضاعفة مفعلة</span>
                 <span>•</span>
                 <span>📈 أداء مؤشر Ag Index يرتفع بنسبة +14.2%</span>
                 <span>•</span>
@@ -188,14 +188,14 @@
                 <div class="flex justify-between items-center relative z-10">
                     <div>
                         <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">بطاقة العضوية ونظام الترقيات</span>
-                        <h3 id="lblCardTierName" class="text-lg font-black text-white mt-0.5">رتبة A1 (مستوى 1)</h3>
+                        <h3 id="lblCardTierName" class="text-lg font-black text-white mt-0.5">مستوى A1</h3>
                     </div>
                     <div class="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold">
                         <i class="fa-solid fa-crown"></i>
                     </div>
                 </div>
                 <div class="pt-2 border-t border-amber-500/20 flex justify-between items-center text-xs relative z-10">
-                    <span class="text-slate-300">مكافأة الترقية القادمة: <b id="lblNextBonus" class="text-emerald-400">8.00 $ (4$ × 2^2)</b></span>
+                    <span class="text-slate-300">انتقل للمستوى الأعلى برصيد أفضل</span>
                     <button type="button" onclick="upgradeTier()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs shadow">ترقية الرتبة الآن</button>
                 </div>
             </div>
@@ -227,7 +227,7 @@
                 <div class="relative z-10 flex items-center justify-between">
                     <div>
                         <span class="inline-flex items-center text-[10px] bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full font-extrabold border border-amber-500/30">
-                            <i class="fa-solid fa-plane-circle-check ml-1"></i> مهام السفر اليومية (12 شهراً)
+                            <i class="fa-solid fa-plane-circle-check ml-1"></i> مهام السفر اليومية
                         </span>
                         <h2 class="text-lg font-black text-white mt-2">رحلة النخبة الاستثمارية</h2>
                     </div>
@@ -242,7 +242,7 @@
                     <div class="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" style="animation-duration: 8s;"></div>
                     <div class="text-center z-10">
                         <span id="lblCompletedTasks" class="text-3xl font-black text-white">0</span>
-                        <span class="text-xs text-slate-400 block font-bold mt-0.5">من أصل <span class="text-amber-400">33</span></span>
+                        <span class="text-xs text-slate-400 block font-bold mt-0.5">من أصل <span id="lblMaxTasks" class="text-amber-400">33</span></span>
                     </div>
                 </div>
 
@@ -277,7 +277,7 @@
                 </div>
                 <div id="aiChatBox" class="bg-slate-950 p-4 rounded-2xl h-60 overflow-y-auto space-y-3 text-xs border border-slate-800">
                     <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">
-                        مرحباً بك! أنا مستشارك الذكي في منصة Ag Boost. كيف يمكنني مساعدتك اليوم في حساب أرباحك، توجيهك لترقية مستواك، أو اختيار طريقة الاستثمار الأنسب؟
+                        مرحباً بك! أنا مستشارك الذكي في منصة Ag Boost. كيف يمكنني مساعدتك اليوم؟
                     </div>
                 </div>
                 <div class="flex space-x-2 space-x-reverse">
@@ -294,7 +294,7 @@
                     <i class="fa-solid fa-dharmachakra animate-spin" style="animation-duration: 10s;"></i>
                 </div>
                 <h2 class="text-lg font-bold text-white">عجلة الحظ والصناديق المفاجئة</h2>
-                <p class="text-xs text-slate-400">افتح الصناديق كل 3 أيام واربح جوائز نقدية مضاعفة!</p>
+                <p class="text-xs text-slate-400">افتح الصناديق أو دور العجلة واربح جوائز نقدية فورية!</p>
                 
                 <div class="py-4 relative flex items-center justify-center">
                     <div id="spinWheelVisual" class="w-36 h-36 rounded-full border-4 border-purple-500/50 flex items-center justify-center bg-slate-950 shadow-2xl relative transition-all duration-1000">
@@ -303,8 +303,8 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <button type="button" onclick="triggerLuckySpin()" class="py-3 purple-gradient text-white font-bold rounded-xl shadow-lg text-xs">تدوير العجلة</button>
-                    <button type="button" onclick="openMysteryBox()" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg text-xs">فتح صندوق مفاجئ</button>
+                    <button type="button" onclick="triggerLuckySpin()" class="py-3 purple-gradient text-white font-bold rounded-xl shadow-lg text-xs">تدوير العجلة (+5$)</button>
+                    <button type="button" onclick="openMysteryBox()" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg text-xs">صندوق مفاجئ (+10$)</button>
                 </div>
             </div>
         </div>
@@ -314,63 +314,10 @@
             <div class="glass-card p-5 rounded-3xl text-center space-y-3">
                 <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
                 <h2 class="text-lg font-bold text-white">شجرة الفريق والإحالات</h2>
-                <p class="text-xs text-slate-400">شارك رابطك أو كود الـ QR لزيادة أرباح محفظتك.</p>
+                <p class="text-xs text-slate-400">شارك رابطك كود الإحالة لزيادة أرباح محفظتك.</p>
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
                     <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
                     <button type="button" onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرابط</button>
-                </div>
-            </div>
-
-            <!-- متصدرو الأرباح -->
-            <div class="glass-card p-5 rounded-3xl space-y-3 border border-amber-500/30">
-                <h3 class="text-sm font-bold text-white flex items-center justify-between">
-                    <span><i class="fa-solid fa-trophy text-amber-400 ml-2"></i> متصدرو الأرباح هذا الأسبوع</span>
-                    <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">LIVE</span>
-                </h3>
-                <div class="space-y-2 text-xs">
-                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-amber-500/30">
-                        <div class="flex items-center space-x-2 space-x-reverse">
-                            <span class="w-6 h-6 rounded-full gold-gradient text-slate-950 font-black text-[10px] flex items-center justify-center">1</span>
-                            <span class="text-white font-bold">أحمد الملا</span>
-                        </div>
-                        <span class="text-emerald-400 font-extrabold">+1,850 USDT</span>
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <div class="flex items-center space-x-2 space-x-reverse">
-                            <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-300 font-bold text-[10px] flex items-center justify-center">2</span>
-                            <span class="text-slate-300 font-bold">Siamand K.</span>
-                        </div>
-                        <span class="text-emerald-400 font-bold">+1,240 USDT</span>
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <div class="flex items-center space-x-2 space-x-reverse">
-                            <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 font-bold text-[10px] flex items-center justify-center">3</span>
-                            <span class="text-slate-400 font-bold">طارق خالد</span>
-                        </div>
-                        <span class="text-emerald-400 font-bold">+910 USDT</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- أوسمة وإنجازات -->
-            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
-                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-medal text-amber-400 ml-2"></i> أوسمتك وإنجازاتك الرقمية</h3>
-                <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div class="bg-slate-900 p-3 rounded-2xl border border-amber-500/40">
-                        <i class="fa-solid fa-crown text-amber-400 text-xl mb-1"></i>
-                        <span class="block font-bold text-white">المستثمر النشط</span>
-                        <span class="text-[9px] text-emerald-400">مكتمل (+10$)</span>
-                    </div>
-                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 opacity-60">
-                        <i class="fa-solid fa-user-group text-slate-500 text-xl mb-1"></i>
-                        <span class="block font-bold text-slate-300">سفير الفريق</span>
-                        <span class="text-[9px] text-slate-500">متبقي 8 إحالات</span>
-                    </div>
-                    <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 opacity-60">
-                        <i class="fa-solid fa-dharmachakra text-slate-500 text-xl mb-1"></i>
-                        <span class="block font-bold text-slate-300">محظوظ المنصة</span>
-                        <span class="text-[9px] text-slate-500">قيد التقدم</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -382,42 +329,6 @@
                 <div>
                     <h3 id="lblProfileEmail" class="text-sm font-bold text-white">user@domain.com</h3>
                     <p class="text-xs text-slate-400 mt-1">حماية متقدمة ومحفظة مشفرة نشطة</p>
-                </div>
-            </div>
-
-            <!-- سجل المعاملات -->
-            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
-                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-list-check text-amber-400 ml-2"></i> سجل المعاملات الأخير</h3>
-                <div class="space-y-2 text-xs">
-                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                        <div>
-                            <span class="text-white font-bold block">مكافأة ترقية المستوى</span>
-                            <span class="text-[9px] text-slate-500">اليوم، 14:20</span>
-                        </div>
-                        <span class="text-emerald-400 font-bold">+8.00 $</span>
-                    </div>
-                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                        <div>
-                            <span class="text-white font-bold block">شحن محفظة USDT</span>
-                            <span class="text-[9px] text-slate-500">أمس، 09:15</span>
-                        </div>
-                        <span class="text-emerald-400 font-bold">+150.00 $</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- إعدادات والتفضيلات -->
-            <div class="glass-card p-5 rounded-3xl space-y-3 border border-slate-800">
-                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-sliders text-amber-400 ml-2"></i> إعدادات وتفضيلات التطبيق</h3>
-                <div class="space-y-3 text-xs">
-                    <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
-                        <span class="text-white font-bold">التأثيرات الصوتية التفاعلية</span>
-                        <input type="checkbox" id="soundToggle" checked class="w-4 h-4 accent-amber-500" onchange="toggleSound(this)">
-                    </div>
-                    <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
-                        <span class="text-white font-bold">الوضع المظلم الفاخر (OLED Dark)</span>
-                        <input type="checkbox" checked disabled class="w-4 h-4 accent-amber-500">
-                    </div>
                 </div>
             </div>
 
@@ -440,7 +351,7 @@
             </button>
             <button type="button" onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-plane-up text-base"></i>
-                <span class="text-[9px] mt-1">يسافر</span>
+                <span class="text-[9px] mt-1">المهام</span>
             </button>
             <button type="button" onclick="switchTab('ai')" id="nav-ai" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
                 <i class="fa-solid fa-robot text-base"></i>
@@ -506,12 +417,12 @@
                 <button type="button" onclick="closeDepositModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3 relative z-10">
-                <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 text-center space-y-1">
-                    <span class="text-xs text-slate-400 block">قيمة شحن المحفظة</span>
-                    <span class="text-2xl font-black text-emerald-400">150.00$ <span class="text-xs font-normal text-slate-400">USDT</span></span>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">قيمة الإيداع (USDT)</label>
+                    <input type="number" id="depositAmount" value="50" min="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500">
                 </div>
                 <button type="button" onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
-                    تأكيد إيداع 150$ لمحفظتك الشخصية
+                    تأكيد إيداع المبلغ
                 </button>
             </div>
         </div>
@@ -526,7 +437,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">المبلغ المراد سحبه (USDT)</label>
-                <input type="number" id="withdrawAmount" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="50">
+                <input type="number" id="withdrawAmount" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="20">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">عنوان محفظة TRC20</label>
@@ -546,7 +457,7 @@
             <div class="space-y-2 text-xs">
                 <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
                     <span class="text-white font-bold block">مكافأة الترقية نشطة</span>
-                    <span class="text-[10px] text-slate-400">احصل على 4$ × 2^Level عند الترقية التالية.</span>
+                    <span class="text-[10px] text-slate-400">ترقية المستويات تمنحك عمولات ومهاماً يومية أعلى.</span>
                 </div>
                 <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
                     <span class="text-white font-bold block">الصندوق المفاجئ جاهز</span>
@@ -557,8 +468,10 @@
     </div>
 
     <script>
-        let currentLevel = 1;
+        let currentUserTier = 'A1';
         let soundEnabled = true;
+
+        const tierLimits = { 'A1': 33, 'A2': 35, 'A3': 40, 'A4': 45, 'A5': 50 };
 
         function playBeep(type = 'default') {
             if(!soundEnabled) return;
@@ -765,6 +678,13 @@
             }
         }
 
+        function updateWalletData(wallet) {
+            if(!wallet) return;
+            document.getElementById('lblWalletBalance').innerText = Number(wallet.balance || 0).toFixed(2);
+            document.getElementById('lblTotalDeposits').innerText = Number(wallet.totalDeposits || 0).toFixed(2) + ' $';
+            document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
+        }
+
         async function loadUserProfile() {
             const token = localStorage.getItem('token');
             if(!token) {
@@ -788,19 +708,16 @@
                     document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks || 0;
                     document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
                     
-                    if(data.user.level) {
-                        currentLevel = data.user.level;
-                    }
+                    currentUserTier = data.user.tierCode || 'A1';
 
-                    const wallet = data.user.wallet || { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
-                    document.getElementById('lblWalletBalance').innerText = Number(wallet.balance || 0).toFixed(2);
-                    document.getElementById('lblTotalDeposits').innerText = Number(wallet.totalDeposits || 0).toFixed(2) + ' $';
-                    document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
+                    updateWalletData(data.user.wallet);
 
-                    let maxTasks = 33;
+                    let maxTasks = tierLimits[currentUserTier] || 33;
+                    document.getElementById('lblMaxTasks').innerText = maxTasks;
                     let percent = ((data.user.todayCompletedTasks || 0) / maxTasks) * 100;
                     document.getElementById('taskProgressBar').style.width = `${percent > 100 ? 100 : percent}%`;
                     document.getElementById('lblProgressPercent').innerText = `${Math.round(percent > 100 ? 100 : percent)}%`;
+                    
                     updateTierDisplay();
                 } else {
                     logout();
@@ -812,10 +729,8 @@
         }
 
         function updateTierDisplay() {
-            let nextLevelBonus = 4 * Math.pow(2, currentLevel);
-            document.getElementById('lblCardTierName').innerText = `رتبة A${currentLevel} (مستوى ${currentLevel})`;
-            document.getElementById('lblUserTierBadge').innerText = `مستوى A${currentLevel} المعتمد`;
-            document.getElementById('lblNextBonus').innerText = `${nextLevelBonus.toFixed(2)} $ (4$ × 2^${currentLevel})`;
+            document.getElementById('lblCardTierName').innerText = `المستوى ${currentUserTier}`;
+            document.getElementById('lblUserTierBadge').innerText = `مستوى ${currentUserTier} المعتمد`;
         }
 
         async function upgradeTier() {
@@ -831,9 +746,9 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    currentLevel = data.newLevel || (currentLevel + 1);
+                    currentUserTier = data.tierCode || currentUserTier;
                     updateTierDisplay();
-                    showToast(`مبروك! ترقيت للمستوى ${currentLevel} وحصلت على المكافأة!`, 'upgrade');
+                    showToast(`مبروك! تمت الترقية بنجاح إلى المستوى ${currentUserTier}`, 'upgrade');
                     loadUserProfile();
                 } else {
                     showToast('❌ ' + (data.error || 'فشلت عملية الترقية'));
@@ -854,6 +769,7 @@
                 const data = await res.json();
                 if(res.ok) {
                     showToast('تم إنجاز المهمة وإضافة الأرباح لمحفظتك!', 'win');
+                    updateWalletData(data.wallet);
                     loadUserProfile();
                 } else {
                     showToast(data.error || 'لا يمكن إنجاز المهمة');
@@ -863,17 +779,51 @@
             }
         }
 
-        function triggerLuckySpin() {
+        // 🎡 تدوير العجلة المربوطة بالسيرفر
+        async function triggerLuckySpin() {
+            const token = localStorage.getItem('token');
             const wheel = document.getElementById('spinWheelVisual');
             wheel.style.transform = `rotate(${Math.floor(Math.random() * 1000 + 720)}deg)`;
-            setTimeout(() => {
-                showToast('مبروك! ربحت 5.00$ من عجلة الحظ الكبرى', 'win');
-                loadUserProfile();
-            }, 1000);
+
+            try {
+                const res = await fetch('/api/spin/wheel', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    setTimeout(() => {
+                        showToast(`مبروك! ربحت ${data.reward}$ أضيفت لمحفظتك مباشرة`, 'win');
+                        updateWalletData(data.wallet);
+                    }, 1000);
+                } else {
+                    showToast('❌ ' + (data.error || 'حدث خطأ عند تدوير العجلة'));
+                }
+            } catch (err) {
+                showToast('❌ خطأ في الاتصال بالخادم');
+            }
         }
 
-        function openMysteryBox() {
-            showToast('🎁 مبروك! فتحت صندوقاً مفاجئاً واكتشفت مكافأة 10.00$ أضيفت لمحفظتك!', 'win');
+        // 🎁 الصندوق الغامض المربوط بالسيرفر
+        async function openMysteryBox() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/spin/mystery-box', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    showToast(`🎁 مبروك! فتحت الصندوق واكتشفت مكافأة ${data.reward}$ أضيفت لمحفظتك!`, 'win');
+                    updateWalletData(data.wallet);
+                } else {
+                    showToast('❌ ' + (data.error || 'حدث خطأ عند فتح الصندوق'));
+                }
+            } catch (err) {
+                showToast('❌ خطأ في الاتصال بالخادم');
+            }
         }
 
         async function sendAiMessage() {
@@ -940,17 +890,18 @@
         
         async function confirmDeposit() {
             const token = localStorage.getItem('token');
+            const amount = parseFloat(document.getElementById('depositAmount').value) || 50;
             try {
                 const res = await fetch('/api/wallet/deposit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-                    body: JSON.stringify({amount: 150})
+                    body: JSON.stringify({ amount })
                 });
                 const data = await res.json();
-                if(res.ok) {
-                    showToast('تم شحن محفظتك بـ 150$ بنجاح', 'win');
+                if(res.ok && data.wallet) {
+                    showToast(`تم شحن محفظتك بـ ${amount}$ بنجاح`, 'win');
                     closeDepositModal();
-                    loadUserProfile();
+                    updateWalletData(data.wallet);
                 } else {
                     showToast(data.error || 'خطأ في عملية الإيداع');
                 }
@@ -973,10 +924,10 @@
                     body: JSON.stringify({amount, walletAddress})
                 });
                 const data = await res.json();
-                if(res.ok) {
-                    showToast('تم خصم وسحب المبلغ من محفظتك بنجاح');
+                if(res.ok && data.wallet) {
+                    showToast('تم تقديم طلب السحب وخصم المبلغ من محفظتك بنجاح');
                     closeWithdrawModal();
-                    loadUserProfile();
+                    updateWalletData(data.wallet);
                 } else {
                     showToast(data.error || 'رصيد المحفظة لا يكفي');
                 }
