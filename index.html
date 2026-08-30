@@ -282,7 +282,7 @@
                     </div>
                 </div>
 
-                <button type="button" onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
+                <button type="button" id="btnCompleteTask" onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
                     <i class="fa-solid fa-bolt text-base"></i>
                     <span>إنجاز المهمة وإضافة الأرباح لمحفظتك</span>
                 </button>
@@ -470,7 +470,7 @@
             </div>
         </div>
 
-        <!-- شريط التنقل السفلي المحدث ليشمل تبويب "المستويات" (VIP) -->
+        <!-- شريط التنقل السفلي المحدث -->
         <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-2 py-2 flex justify-between items-center z-40 bg-slate-950/90 backdrop-blur-xl">
             <button type="button" onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
                 <i class="fa-solid fa-house text-sm"></i>
@@ -552,7 +552,7 @@
                     <label class="block text-xs text-slate-400 mb-1">قيمة الإيداع (USDT)</label>
                     <input type="number" id="depositAmount" value="50" min="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500">
                 </div>
-                <button type="button" onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
+                <button type="button" id="btnConfirmDeposit" onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
                     تأكيد إيداع المبلغ
                 </button>
             </div>
@@ -589,7 +589,7 @@
                 تتوقف السحوبات لمدة 24 ساعة مؤقتاً عند تعديل أو تغيير عنوان المحفظة للمصادقة.
             </div>
 
-            <button type="button" onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
+            <button type="button" id="btnSubmitWithdraw" onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد سحب المبلغ</button>
         </div>
     </div>
 
@@ -630,7 +630,6 @@
         let currentUserTier = 'A1';
         let soundEnabled = true;
 
-        // مصفوفة بيانات المستويات الاحترافية (A1 - A5)
         const tiersData = [
             { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
             { code: 'A2', name: 'المستوى A2 المتقدم', price: 150, tasks: 35, dailyProfit: 8.00, monthlyProfit: 240.00, yearlyProfit: 2920.00, badgeColor: 'from-blue-500/20 to-cyan-700/20 border-blue-500/40 text-blue-400' },
@@ -1125,7 +1124,10 @@
         }
 
         async function completeTask() {
+            const btn = document.getElementById('btnCompleteTask');
             const token = localStorage.getItem('token');
+            
+            btn.disabled = true;
             try {
                 const res = await fetch('/api/tasks/complete', {
                     method: 'POST',
@@ -1141,6 +1143,8 @@
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال');
+            } finally {
+                btn.disabled = false;
             }
         }
 
@@ -1253,6 +1257,9 @@
         async function confirmDeposit() {
             const token = localStorage.getItem('token');
             const amount = parseFloat(document.getElementById('depositAmount').value) || 50;
+            const btn = document.getElementById('btnConfirmDeposit');
+
+            btn.disabled = true;
             try {
                 const res = await fetch('/api/wallet/deposit', {
                     method: 'POST',
@@ -1269,6 +1276,8 @@
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال');
+            } finally {
+                btn.disabled = false;
             }
         }
 
@@ -1298,6 +1307,7 @@
             const walletAddress = document.getElementById('withdrawWallet').value.trim();
             const twoFactorCode = document.getElementById('withdraw2faCode').value.trim();
             const token = localStorage.getItem('token');
+            const btn = document.getElementById('btnSubmitWithdraw');
 
             if (!walletAddress) {
                 showToast('يرجى تثبيت عنوان المحفظة أولاً من الملف الشخصي');
@@ -1309,6 +1319,7 @@
                 return;
             }
 
+            btn.disabled = true;
             try {
                 const res = await fetch('/api/wallet/withdraw', {
                     method: 'POST',
@@ -1325,6 +1336,8 @@
                 }
             } catch(err) {
                 showToast('خطأ في الاتصال');
+            } finally {
+                btn.disabled = false;
             }
         }
 
