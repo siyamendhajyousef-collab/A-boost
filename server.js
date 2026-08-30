@@ -33,7 +33,12 @@ const userSchema = new mongoose.Schema({
   assetWallet: { type: Number, default: 0 },
   todayCompletedTasks: { type: Number, default: 0 },
   referralCode: { type: String, unique: true },
-  walletAddress: { type: String, default: '' }
+  walletAddress: { type: String, default: '' },
+  wallet: {
+    balance: { type: Number, default: 0 },
+    totalDeposits: { type: Number, default: 0 },
+    totalWithdrawn: { type: Number, default: 0 }
+  }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -72,7 +77,12 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = 'BOOST' + Math.floor(1000 + Math.random() * 9000);
 
-    const newUser = new User({ email, password: hashedPassword, referralCode });
+    const newUser = new User({ 
+      email, 
+      password: hashedPassword, 
+      referralCode,
+      wallet: { balance: 0, totalDeposits: 0, totalWithdrawn: 0 }
+    });
     await newUser.save();
     res.status(201).json({ success: true, message: 'تم إنشاء الحساب بنجاح' });
   } catch (err) {
@@ -133,6 +143,42 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
+// شحن وإيداع رصيد المحفظة
+app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'مبلغ الإيداع غير صالح' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+
+    if (!user.wallet) {
+      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    }
+
+    user.wallet.balance += Number(amount);
+    user.wallet.totalDeposits += Number(amount);
+    await user.save();
+
+    const depositTransaction = new Transaction({
+      userId: user._id,
+      type: 'deposit',
+      amount: Number(amount),
+      walletAddress: 'System Deposit',
+      status: 'approved'
+    });
+    await depositTransaction.save();
+
+    res.status(200).json({ success: true, message: 'تم إيداع الرصيد بنجاح', wallet: user.wallet });
+  } catch (err) {
+    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+  }
+});
+
 // طلب سحب أسبوعي
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
@@ -152,6 +198,11 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     }
 
     user.assetWallet -= amount;
+    
+    if (!user.wallet) {
+      user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
+    }
+    user.wallet.totalWithdrawn += Number(amount);
     await user.save();
 
     const withdrawal = new Transaction({
