@@ -715,7 +715,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// 💳 الإيداع (معدل أمنياً: حالة pending لتتطلب مراجعة أو تأكيد شبكة الدفع)
+// 💳 الإيداع
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount, txHash } = req.body;
@@ -729,7 +729,7 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
       type: 'deposit',
       amount: depositNum,
       walletAddress: txHash || 'Manual Deposit Request',
-      status: 'pending' // حماية ضد الإضافة المباشرة للرصيد دون تأكيد
+      status: 'pending'
     });
     await depositTransaction.save();
 
@@ -818,7 +818,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 طلب السحب (محمي بنظام التحقق الثنائي 2FA + إشعار بريدي تفصيلي)
+// 💸 طلب السحب (البريد الأول: إشعار بتقديم الطلب وقيد المراجعة)
 const maxWithdrawLimits = { 'A1': 15, 'A2': 35, 'A3': 80, 'A4': 200, 'A5': 500 };
 
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
@@ -872,7 +872,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
     });
     await withdrawal.save();
 
-    // 📧 إرسال إشعار السحب المكتمل بالتفاصيل عبر البريد الإلكتروني (Resend)
+    // 📧 إرسال إشعار تقديم الطلب عبر البريد الإلكتروني
     try {
       const formattedDate = new Date().toLocaleString('ar-EG', { timeZone: 'UTC' });
       
@@ -884,14 +884,14 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
           <div style="direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px; background-color: #0b1329; color: #ffffff; border-radius: 12px; max-width: 600px; margin: auto; border: 1px solid #1e293b;">
             <div style="text-align: center; border-bottom: 2px solid #38bdf8; padding-bottom: 15px; margin-bottom: 20px;">
               <h1 style="color: #38bdf8; margin: 0; font-size: 24px;">منصة BOOST</h1>
-              <p style="color: #94a3b8; font-size: 14px; margin-top: 5px;">إشعار تأكيد طلب السحب</p>
+              <p style="color: #94a3b8; font-size: 14px; margin-top: 5px;">إشعار استلام طلب السحب</p>
             </div>
 
             <p style="font-size: 16px; color: #e2e8f0;">مرحباً <strong>${user.email.split('@')[0]}</strong>،</p>
-            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">تم استلام طلب السحب الخاص بك بنجاح، وهو حالياً قيد المعالجة من قبل الفريق المالي.</p>
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">تم استلام طلب السحب الخاص بك بنجاح، وهو حالياً قيد المراجعة والمعالجة من قبل الفريق المالي.</p>
 
             <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; margin: 20px 0; border-right: 4px solid #f59e0b;">
-              <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 18px;">تفاصيل عملية السحب:</h3>
+              <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 18px;">تفاصيل الطلب:</h3>
               
               <table style="width: 100%; border-collapse: collapse; text-align: right; color: #f8fafc; font-size: 14px;">
                 <tr>
@@ -918,7 +918,7 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
             </div>
 
             <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">
-              * يتم تحويل المبالغ عادةً خلال فترة وجيزة بعد التحقق الأمني. إذا لم تقم بهذه العملية، يرجى التواصل فوراً مع الدعم الفني لحماية حسابك.
+              * سيتم تحويل المبالغ وإرسال تأكيد فور الموافقة على العملية.
             </p>
 
             <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid #334155; font-size: 12px; color: #64748b;">
@@ -1032,30 +1032,91 @@ app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   }
 });
 
-// ⚙️ الموافقة أو رفض طلب (سحب أو إيداع) من قبل الأدمن
+// ⚙️ الموافقة أو رفض طلب (سحب أو إيداع) + إرسال بريد بإتمام العملية بنجاح عند الموافقة
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   try {
     const { transactionId, action } = req.body;
-    const tx = await Transaction.findById(transactionId);
+    const tx = await Transaction.findById(transactionId).populate('userId');
     if (!tx) return res.status(404).json({ error: 'المعاملة غير موجودة' });
 
     if (tx.status !== 'pending') {
       return res.status(400).json({ error: 'تمت معالجة هذه المعاملة سابقاً' });
     }
 
+    const user = tx.userId;
+
     if (action === 'approve') {
       tx.status = 'approved';
       if (tx.type === 'deposit') {
-        // إضافة الرصيد لحساب المستخدم عند موافقة الأدمن على الإيداع
-        await User.findByIdAndUpdate(tx.userId, {
+        await User.findByIdAndUpdate(user._id, {
           $inc: { 'wallet.balance': tx.amount, 'wallet.totalDeposits': tx.amount }
         });
       }
+
+      // 📧 إرسال بريد إشعار ثانٍ عند اكتمال وإتمام عملية السحب بنجاح
+      if (tx.type === 'withdraw' && user && user.email) {
+        try {
+          const completedDate = new Date().toLocaleString('ar-EG', { timeZone: 'UTC' });
+          await resend.emails.send({
+            from: 'BOOST Platform <onboarding@resend.dev>',
+            to: user.email,
+            subject: '✅ تم إتمام عملية السحب بنجاح - منصة BOOST',
+            html: `
+              <div style="direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px; background-color: #0b1329; color: #ffffff; border-radius: 12px; max-width: 600px; margin: auto; border: 1px solid #10b981;">
+                <div style="text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 20px;">
+                  <h1 style="color: #10b981; margin: 0; font-size: 24px;">منصة BOOST</h1>
+                  <p style="color: #94a3b8; font-size: 14px; margin-top: 5px;">تأكيد تحويل واستلام الأرباح</p>
+                </div>
+
+                <p style="font-size: 16px; color: #e2e8f0;">مرحباً <strong>${user.email.split('@')[0]}</strong>،</p>
+                <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">يسعدنا إبلاغك بأنه تم قبول طلب السحب الخاص بك وتحويل المبلغ بنجاح إلى محفظتك الإلكترونية!</p>
+
+                <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; margin: 20px 0; border-right: 4px solid #10b981;">
+                  <h3 style="color: #34d399; margin-top: 0; margin-bottom: 15px; font-size: 18px;">تفاصيل المعاملة المكتملة:</h3>
+                  
+                  <table style="width: 100%; border-collapse: collapse; text-align: right; color: #f8fafc; font-size: 14px;">
+                    <tr>
+                      <td style="padding: 8px 0; color: #94a3b8;">المبلغ المحول:</td>
+                      <td style="padding: 8px 0; font-weight: bold; color: #10b981; font-size: 18px;">$${tx.amount} USDT</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #94a3b8;">معرف المعاملة (TxID):</td>
+                      <td style="padding: 8px 0; font-family: monospace; color: #38bdf8;">#${tx._id}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #94a3b8;">إلى المحفظة:</td>
+                      <td style="padding: 8px 0; font-family: monospace; word-break: break-all; color: #f1f5f9;">${tx.walletAddress}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #94a3b8;">حالة العملية:</td>
+                      <td style="padding: 8px 0;"><span style="background-color: #065f46; color: #34d399; padding: 4px 10px; border-radius: 5px; font-size: 13px; font-weight: bold;">مكتملة بنجاح ✅</span></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #94a3b8;">تاريخ التجهيز:</td>
+                      <td style="padding: 8px 0; color: #cbd5e1;">${completedDate}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <p style="font-size: 14px; color: #cbd5e1; text-align: center; margin-top: 20px;">
+                  شكراً لثقتك واستخدامك منصة <strong>BOOST</strong>. ونتمنى لك المزيد من الأرباح والنجاح!
+                </p>
+
+                <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid #334155; font-size: 12px; color: #64748b;">
+                  جميع الحقوق محفوظة © منصة BOOST 2026
+                </div>
+              </div>
+            `
+          });
+        } catch (emailErr) {
+          console.error('⚠️ فشل إرسال بريد إتمام السحب:', emailErr.message);
+        }
+      }
+
     } else if (action === 'reject') {
       tx.status = 'rejected';
       if (tx.type === 'withdraw') {
-        // إعادة المبلغ لرصيد المستخدم في حالة رفض السحب
-        await User.findByIdAndUpdate(tx.userId, {
+        await User.findByIdAndUpdate(user._id, {
           $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
         });
       }
