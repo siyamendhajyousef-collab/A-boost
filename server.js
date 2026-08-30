@@ -242,7 +242,7 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   }
 });
 
-// 📌 مسار حفظ/تحديث عنوان محفظة السحب (الجديد)
+// 📌 مسار حفظ/تحديث عنوان محفظة السحب (المعدل مع الحماية ضد التعديل)
 app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
   try {
     const { walletAddress } = req.body;
@@ -251,20 +251,26 @@ app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'يرجى إدخال عنوان محفظة صالح' });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { walletAddress: walletAddress.trim() },
-      { new: true }
-    ).select('-password');
-
-    if (!updatedUser) {
+    const user = await User.findById(req.user.id);
+    if (!user) {
       return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
 
+    // التحقق من وجود عنوان محفظة ثابت سابقاً
+    if (user.walletAddress && user.walletAddress.trim() !== '') {
+      return res.status(400).json({ 
+        error: 'عنوان المحفظة مثبت سابقاً، لا يمكنك تعديله إلا عن طريق التواصل مع الأدمن.' 
+      });
+    }
+
+    // حفظ وتثبيت العنوان لأول مرة
+    user.walletAddress = walletAddress.trim();
+    await user.save();
+
     res.status(200).json({
       success: true,
-      message: 'تم حفظ عنوان المحفظة بنجاح',
-      walletAddress: updatedUser.walletAddress
+      message: 'تم حفظ وتثبيت عنوان المحفظة بنجاح',
+      walletAddress: user.walletAddress
     });
   } catch (err) {
     res.status(500).json({ error: 'خطأ تقني: ' + err.message });
@@ -698,15 +704,16 @@ app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
   }
 });
 
-// ✏️ تعديل بيانات مستخدم (الرصيد أو المستوى)
+// ✏️ تعديل بيانات مستخدم (الرصيد، المستوى، أو عنوان المحفظة من الإدارة)
 app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   try {
-    const { userId, balance, tierCode } = req.body;
+    const { userId, balance, tierCode, walletAddress } = req.body;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
     if (balance !== undefined) user.wallet.balance = Number(balance);
     if (tierCode) user.tierCode = tierCode;
+    if (walletAddress !== undefined) user.walletAddress = walletAddress.trim();
 
     await user.save();
     res.json({ success: true, message: 'تم تعديل بيانات المستخدم بنجاح', user });
