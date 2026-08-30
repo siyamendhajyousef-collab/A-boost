@@ -123,7 +123,8 @@
                                 <th class="p-4">المستخدم</th>
                                 <th class="p-4">المستوى</th>
                                 <th class="p-4">الرصيد</th>
-                                <th class="p-4">المهام المكتملة</th>
+                                <th class="p-4">الحالة</th>
+                                <th class="p-4">المهام</th>
                                 <th class="p-4">الإجراءات</th>
                             </tr>
                         </thead>
@@ -170,7 +171,7 @@
                         <i class="fa-solid fa-dharmachakra ml-2"></i> حدود مكافأة عجلة الحظ
                     </h3>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">الحد أدنى للربح ($)</label>
+                        <label class="block text-xs text-slate-400 mb-1">الحد الأدنى للربح ($)</label>
                         <input type="number" id="cfgSpinMin" value="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
                     </div>
                     <div>
@@ -185,7 +186,7 @@
                         <i class="fa-solid fa-box-open ml-2"></i> حدود مكافأة الصندوق الغامض
                     </h3>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">الحد أدنى للربح ($)</label>
+                        <label class="block text-xs text-slate-400 mb-1">الحد الأدنى للربح ($)</label>
                         <input type="number" id="cfgBoxMin" value="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
                     </div>
                     <div>
@@ -236,7 +237,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">رصيد المحفظة ($)</label>
-                <input type="number" id="editUserBalance" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
+                <input type="number" id="editUserBalance" step="0.01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
             </div>
             <button onclick="submitEditUser()" class="w-full py-3 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تحديث البيانات</button>
         </div>
@@ -261,28 +262,22 @@
             document.getElementById(`admin-${tab}`).classList.remove('hide');
             document.getElementById(`btn-tab-${tab}`).className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
 
-            // تجديد جلب البيانات حسب التبويب المختار
             if(tab === 'overview') fetchAdminOverview();
             if(tab === 'users') fetchUsersList();
             if(tab === 'withdrawals') fetchTransactionsList();
+            if(tab === 'games') fetchGameSettings();
         }
 
         async function fetchAdminOverview() {
             const token = localStorage.getItem('token');
-            if (!token) {
-                adminLogout();
-                return;
-            }
+            if (!token) return adminLogout();
 
             try {
                 const res = await fetch('/api/admin/overview', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (res.status === 401 || res.status === 403) {
-                    adminLogout();
-                    return;
-                }
+                if (res.status === 401 || res.status === 403) return adminLogout();
 
                 const data = await res.json();
                 if(res.ok && data.success) {
@@ -319,26 +314,60 @@
         function renderUsersTable(users) {
             const tbody = document.getElementById('tblUsersBody');
             if(!users || users.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">لا يوجد مستخدمين لعرضهم</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا يوجد مستخدمين لعرضهم</td></tr>`;
                 return;
             }
-            tbody.innerHTML = users.map(u => `
-                <tr>
-                    <td class="p-4 font-bold text-white">${u.email}</td>
-                    <td class="p-4"><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">${u.tierCode || 'A1'}</span></td>
-                    <td class="p-4 text-emerald-400 font-mono font-bold">${Number(u.wallet?.balance || 0).toFixed(2)} $</td>
-                    <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
-                    <td class="p-4 space-x-2 space-x-reverse">
-                        <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition-all">تعديل</button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = users.map(u => {
+                const isBanned = u.isBanned || false;
+                const statusBadge = isBanned 
+                    ? `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">محظور</span>`
+                    : `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">نشط</span>`;
+
+                const banBtn = isBanned
+                    ? `<button onclick="toggleUserBan('${u._id}', false)" class="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded-lg text-[10px] font-bold hover:bg-emerald-600/40 transition-all">إلغاء الحظر</button>`
+                    : `<button onclick="toggleUserBan('${u._id}', true)" class="px-3 py-1 bg-rose-600/20 text-rose-400 rounded-lg text-[10px] font-bold hover:bg-rose-600/40 transition-all">حظر</button>`;
+
+                return `
+                    <tr>
+                        <td class="p-4 font-bold text-white">${u.email}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">${u.tierCode || 'A1'}</span></td>
+                        <td class="p-4 text-emerald-400 font-mono font-bold">${Number(u.wallet?.balance || 0).toFixed(2)} $</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-slate-400">${u.todayCompletedTasks || 0}</td>
+                        <td class="p-4 space-x-2 space-x-reverse">
+                            <button onclick="openEditUser('${u._id}', '${u.tierCode || 'A1'}', ${u.wallet?.balance || 0})" class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition-all">تعديل</button>
+                            ${banBtn}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function filterUsersTable() {
             const term = document.getElementById('txtSearchUser').value.toLowerCase();
             const filtered = allUsersData.filter(u => u.email && u.email.toLowerCase().includes(term));
             renderUsersTable(filtered);
+        }
+
+        async function toggleUserBan(userId, isBanned) {
+            const actionText = isBanned ? 'حظر' : 'إلغاء حظر';
+            if (!confirm(`هل أنت تأكد من رغبتك في ${actionText} هذا المستخدم؟`)) return;
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/users/toggle-ban', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId, isBanned })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message);
+                    fetchUsersList();
+                } else {
+                    showToast(data.error || 'حدث خطأ في تنفيذ العملية');
+                }
+            } catch (e) { showToast('خطأ في الاتصال بالخادم'); }
         }
 
         async function fetchTransactionsList() {
@@ -440,6 +469,22 @@
                     showToast('حدث خطأ أثناء التحديث');
                 }
             } catch(e) { showToast('خطأ في الاتصال'); }
+        }
+
+        async function fetchGameSettings() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/settings/games', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success && data.settings) {
+                    document.getElementById('cfgSpinMin').value = data.settings.spinMin;
+                    document.getElementById('cfgSpinMax').value = data.settings.spinMax;
+                    document.getElementById('cfgBoxMin').value = data.settings.boxMin;
+                    document.getElementById('cfgBoxMax').value = data.settings.boxMax;
+                }
+            } catch(e) { console.error('خطأ إعدادات الألعاب:', e); }
         }
 
         async function saveGameSettings() {
