@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const { Resend } = require('resend');
+const Groq = require('groq-sdk');
 
 const app = express();
 app.use(express.json());
@@ -86,7 +87,7 @@ const verifyToken = (req, res, next) => {
 
 // ==================== 4. المسارات (API Routes) ====================
 
-// 🤖 مسار المستشار الذكي المربوط بـ Groq API (محدث مع تجربة عدة نماذج متوفرة لتفادي أخطاء Decommissioned/Not Found)
+// 🤖 مسار المستشار الذكي المربوط بـ Groq SDK الرسمية (يدعم نموذج openai/gpt-oss-120b والبث المباشر)
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -113,9 +114,12 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 
     const apiKey = process.env.GROQ_API_KEY || process.env.Boostai;
     if (!apiKey) {
-      console.error("⚠️ GROQ_API_KEY/Boostai is missing in Railway variables!");
+      console.error("⚠️ GROQ_API_KEY/Boostai is missing in environment variables!");
       return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً، يرجى إضافة مفتاح GROQ_API_KEY في متغيرات البيئة." });
     }
+
+    // إنشاء عميل Groq SDK
+    const groq = new Groq({ apiKey: apiKey.trim() });
 
     const systemPrompt = `
 أنت "Ag AI Advisor"، المستشار الذكي والداعم الرسمي لمنصة Ag Boost.
@@ -133,60 +137,40 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // قائمة بالأنساق النشطة المتاحة لدى Groq للتجربة التلقائية
-    const modelsToTry = [
-      'mixtral-8x7b-32768',
-      'gemma2-9b-it',
-      'llama-3.1-8b-instant'
-    ];
+    // طلب البث المباشر عبر Groq SDK
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
+      ],
+      model: "openai/gpt-oss-120b",
+      temperature: 1,
+      max_completion_tokens: 2048,
+      top_p: 1,
+      stream: true,
+      reasoning_effort: "medium",
+      stop: null
+    });
 
-    let aiReply = null;
-    let lastError = null;
+    // ضبط تروس الاستجابة لدعم البث (Streaming)
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
 
-    for (const modelName of modelsToTry) {
-      try {
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey.trim()}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: message }
-            ],
-            max_tokens: 200,
-            temperature: 0.7
-          })
-        });
-
-        const data = await groqResponse.json();
-
-        if (data.choices && data.choices[0]?.message?.content) {
-          aiReply = data.choices[0].message.content.trim();
-          console.log(`✅ Success using model: ${modelName}`);
-          break;
-        } else {
-          lastError = data;
-          console.warn(`⚠️ Model ${modelName} failed:`, data.error?.message || data);
-        }
-      } catch (err) {
-        console.warn(`⚠️ Error connecting to model ${modelName}:`, err.message);
+    for await (const chunk of chatCompletion) {
+      const text = chunk.choices[0]?.delta?.content || '';
+      if (text) {
+        res.write(text);
       }
     }
 
-    if (aiReply) {
-      return res.json({ reply: aiReply });
-    } else {
-      console.error("❌ All models failed. Last error:", lastError);
-      return res.status(500).json({ reply: "عذراً، لم أتمكن من الحصول على رد حالياً. يرجى التأكد من صحة API Key الخاص بـ Groq." });
-    }
+    res.end();
 
   } catch (error) {
-    console.error("❌ AI Server Error:", error);
-    return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
+    console.error("❌ Groq SDK Error:", error);
+    if (!res.headersSent) {
+      return res.status(500).json({ reply: "حدث خطأ أثناء الاتصال بالمستشار الذكي." });
+    }
+    res.end();
   }
 });
 
@@ -378,7 +362,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
     if (!user.wallet) user.wallet = { balance: 0, totalDeposits: 0, totalWithdrawn: 0 };
 
     user.assetWallet += commission;
-    user.wallet.balance += commission; // تحديث رصيد المحفظة الرئيسي أيضاً
+    user.wallet.balance += commission;
     user.todayCompletedTasks += 1;
     await user.save();
 
