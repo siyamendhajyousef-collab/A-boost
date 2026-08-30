@@ -3,205 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ag Boost - منصة الأعمال الذكية</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Ag Boost - المنصة الذكية المتكاملة</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
-        body { font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
-        .glass-card { background: rgba(25, 33, 54, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        body { font-family: 'Tajawal', sans-serif; background-color: #030712; color: #f3f4f6; }
+        .glass-card { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.07); }
         .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-        .purple-gradient { background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); }
+        .purple-gradient { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+        .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .holographic { background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%); border: 1px solid rgba(245, 158, 11, 0.3); }
         .hide { display: none !important; }
+        /* Ticker Animation */
+        @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .animate-ticker { display: inline-flex; white-space: nowrap; animation: ticker 25s linear infinite; }
+        .animate-ticker:hover { animation-play-state: paused; }
     </style>
 </head>
-<body class="pb-24 max-w-md mx-auto min-h-screen relative shadow-2xl overflow-x-hidden">
+<body class="pb-28 max-w-md mx-auto min-h-screen relative shadow-2xl overflow-x-hidden border-x border-slate-900">
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hide bg-slate-900 border border-amber-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300"></div>
 
-    <!-- ================= AUTH SECTION ================= -->
-    <div id="authView" class="p-6 mt-10">
-        <div class="text-center mb-8">
-            <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl shadow-purple-900/40 mb-4">
-                <i class="fa-solid fa-plane-up text-3xl text-white"></i>
+    <!-- شريط مركز الدعم والتنبيهات الحية المتحرك -->
+    <div id="liveTickerBar" class="bg-slate-950 border-b border-slate-800/80 py-2 px-3 overflow-hidden text-xs text-amber-400 flex items-center shadow-inner relative z-30 hide">
+        <div class="flex items-center space-x-2 space-x-reverse ml-3 shrink-0 bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/30 text-amber-300">
+            <i class="fa-solid fa-satellite-dish animate-pulse"></i>
+            <span class="font-bold text-[11px]">البث الحي:</span>
+        </div>
+        <div class="overflow-hidden relative w-full flex">
+            <div class="animate-ticker space-x-8 space-x-reverse text-slate-300">
+                <span>🔥 تم ترقية مستخدم إلى المستوى A2 بنجاح</span>
+                <span>•</span>
+                <span>💰 سحب ناجح بقيمة 250$ عبر TRC20</span>
+                <span>•</span>
+                <span>🏆 انضم متسابق جديد لتحدي النخبة الموسمي</span>
+                <span>•</span>
+                <span>⚡ تم إتمام مهام السفر اليومية بنجاح</span>
             </div>
-            <h1 class="text-2xl font-black text-white">Ag Boost Global</h1>
-            <p class="text-slate-400 text-sm mt-1">بوابة العمل الرقمي الموثوقة</p>
+        </div>
+    </div>
+
+    <div id="authView" class="p-6 mt-8">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 mx-auto gold-gradient rounded-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 mb-4">
+                <i class="fa-solid fa-bolt-lightning text-3xl text-slate-950"></i>
+            </div>
+            <h1 class="text-2xl font-black text-white">Ag Boost Ultimate</h1>
+            <p class="text-slate-400 text-sm mt-1">الجيل القادم من منصات العمل الرقمي والاستثمار</p>
         </div>
 
-        <div class="glass-card p-6 rounded-3xl shadow-xl">
-            <!-- Tabs Switcher -->
-            <div class="flex bg-slate-800/80 p-1 rounded-2xl mb-6">
+        <div class="glass-card p-6 rounded-3xl shadow-2xl">
+            <div class="flex bg-slate-900/90 p-1.5 rounded-2xl mb-6 border border-slate-800">
                 <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-sm font-bold rounded-xl bg-amber-500 text-slate-950 transition-all">تسجيل الدخول</button>
                 <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all">حساب جديد</button>
             </div>
 
-            <!-- Login Form -->
             <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
-                    <input type="email5" id="loginEmail" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                    <input type="email" id="loginEmail" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
-                    <input type="password" id="loginPassword" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                    <input type="password" id="loginPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
                 </div>
                 <button type="submit" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all">دخول المنصة</button>
             </form>
 
-            <!-- Register Form -->
             <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hide">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
-                    <input type="email" id="regEmail" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
+                    <input type="email" id="regEmail" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="name@example.com">
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">كلمة المرور</label>
-                    <input type="password" id="regPassword" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
+                    <input type="password" id="regPassword" required class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 text-white" placeholder="••••••••">
                 </div>
                 <button type="submit" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">إنشاء حساب جديد</button>
             </form>
         </div>
     </div>
 
-    <!-- ================= MAIN APP SECTION ================= -->
     <div id="appView" class="hide">
 
-        <!-- 1. HOME TAB -->
         <div id="view-home" class="p-4 space-y-4">
-            <!-- Top Header Banner -->
-            <div class="glass-card p-4 rounded-3xl flex items-center justify-between">
+            <div class="glass-card p-4 rounded-3xl flex items-center justify-between border-slate-800">
                 <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-purple-600 flex items-center justify-center font-black text-xl shadow-md">AG</div>
+                    <div class="w-12 h-12 rounded-2xl gold-gradient flex items-center justify-center font-black text-lg shadow-md text-slate-950">AG</div>
                     <div>
-                        <h2 id="lblUserEmail" class="text-sm font-bold text-white truncate max-w-[180px]">user@domain.com</h2>
-                        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 mt-1 border border-amber-500/30">موظف معتمد • مستوى A1</span>
+                        <h2 id="lblUserEmail" class="text-sm font-bold text-white truncate max-w-[170px]">user@domain.com</h2>
+                        <span id="lblUserTierBadge" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 mt-1 border border-amber-500/30">مستوى A1 المعتمد</span>
                     </div>
                 </div>
-                <button onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 hover:bg-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
+                <button onclick="logout()" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20"><i class="fa-solid fa-power-off"></i></button>
             </div>
 
-            <!-- Quick Action Grid -->
-            <div class="grid grid-cols-4 gap-3 text-center">
-                <div onclick="openWithdrawModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
-                    <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-2"><i class="fa-solid fa-wallet text-lg"></i></div>
-                    <span class="text-xs font-medium text-slate-300">انسحاب</span>
+            <div class="holographic p-5 rounded-3xl relative overflow-hidden shadow-xl space-y-3">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full blur-xl"></div>
+                <div class="flex justify-between items-center relative z-10">
+                    <div>
+                        <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">بطاقة العضوية الذكية (12 شهراً)</span>
+                        <h3 id="lblCardTierName" class="text-lg font-black text-white mt-0.5">رتبة A1 (إيداع 150$)</h3>
+                    </div>
+                    <div id="lblCardIcon" class="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
                 </div>
-                <div onclick="showToast('تم تفعيل خاصية الإيداع الفوري')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
-                    <div class="w-10 h-10 mx-auto rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2"><i class="fa-solid fa-money-bill-transfer text-lg"></i></div>
-                    <span class="text-xs font-medium text-slate-300">إعادة تعبئة</span>
-                </div>
-                <div onclick="showToast('شارك رابط إحالتك واكسب أرباح مضاعفة')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
-                    <div class="w-10 h-10 mx-auto rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-2"><i class="fa-solid fa-user-plus text-lg"></i></div>
-                    <span class="text-xs font-medium text-slate-300">دعوة أصدقاء</span>
-                </div>
-                <div onclick="switchTab('income')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
-                    <div class="w-10 h-10 mx-auto rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-2"><i class="fa-solid fa-chart-pie text-lg"></i></div>
-                    <span class="text-xs font-medium text-slate-300">الصندوق</span>
+                <div class="pt-2 border-t border-amber-500/20 flex justify-between items-center text-xs relative z-10">
+                    <span class="text-slate-300">استرداد رأس المال خلال: <b class="text-emerald-400">3 أشهر</b></span>
+                    <span id="lblUpgradeRequirement" class="text-amber-400 font-bold">ترقية A2: دعوة 10</span>
                 </div>
             </div>
 
-            <!-- Ticker Announcement -->
             <div class="glass-card px-4 py-3 rounded-2xl flex items-center space-x-3 space-x-reverse bg-amber-500/5 border-amber-500/20">
                 <i class="fa-solid fa-bullhorn text-amber-400 animate-pulse"></i>
-                <p class="text-xs text-slate-300 truncate">تهانينا للمشارك A1 بإتمام مهام اليوم بنجاح وعائدات مالية فورية.</p>
+                <p class="text-xs text-slate-300 truncate">مدة الحساب الإجمالية 12 شهراً مع استرداد رأس المال في أول 3 أشهر.</p>
             </div>
 
-            <!-- Featured Promo Banner -->
-            <div class="relative rounded-3xl overflow-hidden glass-card p-5 border border-purple-500/30 bg-gradient-to-br from-purple-900/40 to-slate-900/80">
-                <div class="relative z-10">
-                    <span class="text-[10px] bg-purple-500/30 text-purple-300 px-2.5 py-1 rounded-full font-bold">حملة السفر الكبرى 2026</span>
-                    <h3 class="text-lg font-bold text-white mt-2">عزز دخلك اليومي مع مهام السفر المباشرة</h3>
-                    <p class="text-xs text-slate-400 mt-1">أنجز مهامك اليومية بدقة واحصل على عوائد مباشرة في محفظتك الرقمية.</p>
-                    <button onclick="switchTab('travel')" class="mt-4 px-4 py-2 gold-gradient text-slate-950 font-bold text-xs rounded-xl shadow-lg">ابدأ المهام الآن</button>
+            <div class="grid grid-cols-4 gap-2.5 text-center">
+                <div onclick="openWithdrawModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-wallet text-base"></i></div>
+                    <span class="text-[11px] font-medium text-slate-300">سحب</span>
+                </div>
+                <div onclick="openDepositModal()" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-emerald-500/50 transition-all border-emerald-500/30 bg-emerald-950/20">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-bolt text-base"></i></div>
+                    <span class="text-[11px] font-bold text-emerald-300">شحن 150$</span>
+                </div>
+                <div onclick="switchTab('spin')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-purple-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-dharmachakra text-base"></i></div>
+                    <span class="text-[11px] font-medium text-slate-300">الحظ</span>
+                </div>
+                <div onclick="switchTab('team')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all">
+                    <div class="w-10 h-10 mx-auto rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-1.5"><i class="fa-solid fa-users text-base"></i></div>
+                    <span class="text-[11px] font-medium text-slate-300">الفريق</span>
                 </div>
             </div>
         </div>
 
-        <!-- 2. TRAVEL / TASKS TAB -->
         <div id="view-travel" class="p-4 space-y-4 hide">
-            <div class="glass-card p-5 rounded-3xl text-center space-y-3">
-                <span class="text-xs text-amber-400 font-bold"><i class="fa-solid fa-plane-departure ml-1"></i> مهمة السفر اليومية</span>
-                <h2 class="text-xl font-extrabold text-white">رحلة العمل الميداني الرقمي</h2>
-                <div class="w-full bg-slate-800 rounded-full h-4 overflow-hidden p-0.5 border border-slate-700 mt-3">
-                    <div id="taskProgressBar" class="gold-gradient h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            <div class="relative rounded-3xl overflow-hidden glass-card border border-amber-500/30 p-5 shadow-xl bg-gradient-to-tr from-slate-950 via-purple-950/40 to-slate-900">
+                <div class="relative z-10 flex items-center justify-between">
+                    <div>
+                        <span class="inline-flex items-center text-[10px] bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full font-extrabold border border-amber-500/30">
+                            <i class="fa-solid fa-plane-circle-check ml-1"></i> مهام السفر العالمية (12 شهراً)
+                        </span>
+                        <h2 class="text-lg font-black text-white mt-2">رحلة النخبة الاستثمارية</h2>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-globe text-xl animate-spin" style="animation-duration: 15s;"></i>
+                    </div>
                 </div>
-                <div class="flex justify-between text-xs text-slate-400 px-1">
-                    <span>المنجز: <strong id="lblCompletedTasks" class="text-amber-400">0</strong> / 33</span>
-                    <span>الرصيد الحالي: <strong id="lblWalletBalance" class="text-emerald-400">0.00$</strong></span>
+            </div>
+
+            <div class="glass-card p-6 rounded-3xl text-center space-y-6 border border-purple-500/30 shadow-xl">
+                <div class="relative w-32 h-32 mx-auto flex items-center justify-center rounded-full bg-slate-950 border-4 border-slate-900 shadow-2xl">
+                    <div class="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" style="animation-duration: 8s;"></div>
+                    <div class="text-center z-10">
+                        <span id="lblCompletedTasks" class="text-3xl font-black text-white">0</span>
+                        <span class="text-xs text-slate-400 block font-bold mt-0.5">من أصل <span class="text-amber-400">33</span></span>
+                    </div>
                 </div>
-                <button onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all text-sm mt-3">
-                    <i class="fa-solid fa-bolt ml-2"></i> إنجاز مهمة جديدة
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold px-1">
+                        <span class="text-slate-400">معدل الإنجاز اليومي</span>
+                        <span id="lblProgressPercent" class="text-amber-400">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-slate-800">
+                        <div id="taskProgressBar" class="gold-gradient h-full rounded-full transition-all duration-700 shadow-lg" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <button onclick="completeTask()" class="w-full py-4 gold-gradient text-slate-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all text-sm flex items-center justify-center space-x-2 space-x-reverse">
+                    <i class="fa-solid fa-bolt text-base"></i>
+                    <span>إنجاز المهمة واسترداد الأرباح</span>
                 </button>
             </div>
         </div>
 
-        <!-- 3. INCOME / TIERS TAB -->
         <div id="view-income" class="p-4 space-y-4 hide">
             <div class="text-center mb-2">
-                <h2 class="text-lg font-bold text-white">جدول مستويات الدخل والأرباح</h2>
-                <p class="text-xs text-slate-400">عوائد الموظفين بدوام جزئي في Ag Boost</p>
+                <h2 class="text-lg font-bold text-white">مستويات الاستثمار وعوائدها</h2>
+                <p class="text-xs text-slate-400">استرداد رأس المال بـ 3 أشهر • صلاحية الحساب 12 شهراً</p>
             </div>
-            <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
-                <table class="w-full text-center text-xs">
-                    <thead class="bg-slate-800 text-slate-300 font-bold">
-                        <tr>
-                            <py class="py-3 px-2">الدرجة</py>
-                            <th class="py-3 px-2">إيداع</th>
-                            <th class="py-3 px-2">المهام</th>
-                            <th class="py-3 px-2">اليومي</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 text-slate-300">
-                        <tr><td class="py-3 font-bold text-amber-400">A1</td><td>15$</td><td>33</td><td>1.14$</td></tr>
-                        <tr><td class="py-3 font-bold text-amber-400">A2</td><td>35$</td><td>35</td><td>2.64$</td></tr>
-                        <tr><td class="py-3 font-bold text-amber-400">A3</td><td>80$</td><td>40</td><td>6.07$</td></tr>
-                        <tr><td class="py-3 font-bold text-amber-400">A4</td><td>200$</td><td>45</td><td>15.00$</td></tr>
-                        <tr><td class="py-3 font-bold text-amber-400">A5</td><td>500$</td><td>50</td><td>37.85$</td></tr>
-                    </tbody>
-                </table>
+
+            <div class="space-y-3">
+                <div class="glass-card p-4 rounded-2xl border border-amber-500/40 bg-amber-950/10 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-black text-amber-400">المستوى A1 (الحالي)</span>
+                        <h4 class="text-sm font-bold text-white mt-1">إيداع 150$ • استرداد 3 أشهر</h4>
+                        <p class="text-[11px] text-slate-400 mt-0.5">شرط الترقية لـ A2: دعوة 10 أشخاص</p>
+                    </div>
+                    <button onclick="openDepositModal()" class="px-4 py-2 gold-gradient text-slate-950 font-bold text-xs rounded-xl shadow">شحن 150$</button>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-black text-purple-400">المستوى A2</span>
+                        <h4 class="text-sm font-bold text-white mt-1">إيداع 350$ • استرداد 3 أشهر</h4>
+                        <p class="text-[11px] text-slate-400 mt-0.5">شرط الترقية لـ A3: دعوة 20 شخصاً</p>
+                    </div>
+                    <span class="text-xs text-slate-500 font-bold">مقفل</span>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-black text-blue-400">المستوى A3</span>
+                        <h4 class="text-sm font-bold text-white mt-1">إيداع 800$ • استرداد 3 أشهر</h4>
+                        <p class="text-[11px] text-slate-400 mt-0.5">شرط الترقية لـ A4: دعوة 40 شخصاً</p>
+                    </div>
+                    <span class="text-xs text-slate-500 font-bold">مقفل</span>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-black text-emerald-400">المستوى A4</span>
+                        <h4 class="text-sm font-bold text-white mt-1">إيداع 2,000$ • استرداد 3 أشهر</h4>
+                        <p class="text-[11px] text-slate-400 mt-0.5">شرط الترقية لـ A5: دعوة 80 شخصاً</p>
+                    </div>
+                    <span class="text-xs text-slate-500 font-bold">مقفل</span>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-black text-rose-400">المستوى A5 (القصوى)</span>
+                        <h4 class="text-sm font-bold text-white mt-1">إيداع 5,000$ • استرداد 3 أشهر</h4>
+                        <p class="text-[11px] text-slate-400 mt-0.5">الرتبة العليا للمنصة بصلاحية 12 شهراً</p>
+                    </div>
+                    <span class="text-xs text-slate-500 font-bold">مقفل</span>
+                </div>
             </div>
         </div>
 
-        <!-- 4. TEAM TAB -->
+        <div id="view-spin" class="p-4 space-y-4 hide">
+            <div class="glass-card p-6 rounded-3xl text-center space-y-4 border border-purple-500/30">
+                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg shadow-purple-500/20">
+                    <i class="fa-solid fa-dharmachakra animate-spin" style="animation-duration: 10s;"></i>
+                </div>
+                <h2 class="text-lg font-bold text-white">عجلة الحظ اليومية</h2>
+                <p class="text-xs text-slate-400">لديك محاولة مجانية واحدة اليوم لربح جوائز فورية!</p>
+                
+                <div class="py-6 relative flex items-center justify-center">
+                    <div id="spinWheelVisual" class="w-40 h-40 rounded-full border-4 border-purple-500/50 flex items-center justify-center bg-slate-950 shadow-2xl relative transition-all duration-1000">
+                        <span class="text-xs font-bold text-amber-400">Ag Boost Spin</span>
+                    </div>
+                </div>
+
+                <button onclick="triggerLuckySpin()" class="w-full py-3.5 purple-gradient text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-sm">
+                    تدوير العجلة الآن
+                </button>
+            </div>
+        </div>
+
+        <!-- تبويب الفريق والتحديات الموسمية ولوحة المتصدرين -->
         <div id="view-team" class="p-4 space-y-4 hide">
             <div class="glass-card p-5 rounded-3xl text-center space-y-3">
-                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl font-black text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
+                <div class="w-16 h-16 mx-auto rounded-2xl purple-gradient flex items-center justify-center text-2xl text-white shadow-lg"><i class="fa-solid fa-users"></i></div>
                 <h2 class="text-lg font-bold text-white">إدارة الفريق والإحالات</h2>
-                <p class="text-xs text-slate-400">قم بدعوة زملائك واكسب نسب أرباح تصاعدية ضخمة.</p>
-                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 flex items-center justify-between mt-2">
+                <p class="text-xs text-slate-400">ادعُ أصدقاءك واقترب من الترقية للمستوى الأعلى (A2 يتطلب 10).</p>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
                     <span id="lblReferralCode" class="text-xs text-amber-400 font-mono font-bold">BOOST1234</span>
-                    <button onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ الرمز</button>
+                    <button onclick="copyReferral()" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">نسخ</button>
+                </div>
+            </div>
+
+            <!-- لوحة المتصدرين وتحديات الموسم (Seasonal Leaderboards) -->
+            <div class="glass-card p-5 rounded-3xl space-y-4 border border-amber-500/30">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center space-x-2 space-x-reverse">
+                        <i class="fa-solid fa-trophy text-amber-400 text-lg"></i>
+                        <h3 class="text-sm font-bold text-white">لوحة المتصدرين - التحدي الأسبوعي</h3>
+                    </div>
+                    <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2.5 py-0.5 rounded-full font-bold">موسم نشط</span>
+                </div>
+                
+                <div class="space-y-2.5">
+                    <div class="flex items-center justify-between bg-slate-900/90 p-3 rounded-xl border border-amber-500/30">
+                        <div class="flex items-center space-x-3 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full gold-gradient flex items-center justify-center text-xs font-black text-slate-950">1</span>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">kurd_trader***</h4>
+                                <span class="text-[10px] text-slate-400">42 دعوة هذا الأسبوع</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-extrabold text-amber-400">+500.00$ جائزة</span>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <div class="flex items-center space-x-3 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-slate-300">2</span>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">siamand_99***</h4>
+                                <span class="text-[10px] text-slate-400">31 دعوة هذا الأسبوع</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-extrabold text-purple-400">+250.00$ جائزة</span>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <div class="flex items-center space-x-3 space-x-reverse">
+                            <span class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-amber-700">3</span>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">ag_boost_pro***</h4>
+                                <span class="text-[10px] text-slate-400">24 دعوة هذا الأسبوع</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-extrabold text-emerald-400">+100.00$ جائزة</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 5. PROFILE TAB -->
         <div id="view-profile" class="p-4 space-y-4 hide">
             <div class="glass-card p-5 rounded-3xl flex items-center space-x-4 space-x-reverse">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg"><i class="fa-solid fa-user-tie"></i></div>
+                <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg"><i class="fa-solid fa-user-tie"></i></div>
                 <div>
                     <h3 id="lblProfileEmail" class="text-sm font-bold text-white">user@domain.com</h3>
-                    <p class="text-xs text-slate-400 mt-1">حساب موظف معتمد ومفعل رسمياً</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div class="glass-card p-4 rounded-2xl">
-                    <span class="text-xs text-slate-400 block">رصيد المحفظة</span>
-                    <h4 id="lblProfileWallet" class="text-xl font-black text-amber-400 mt-1">0.00$</h4>
-                </div>
-                <div class="glass-card p-4 rounded-2xl">
-                    <span class="text-xs text-slate-400 block">أرباح اليوم</span>
-                    <h4 class="text-xl font-black text-emerald-400 mt-1">0.00$</h4>
+                    <p class="text-xs text-slate-400 mt-1">حساب استثماري معتمد (12 شهراً)</p>
                 </div>
             </div>
 
             <div class="glass-card p-4 rounded-3xl space-y-3">
-                <div onclick="openWithdrawModal()" class="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 cursor-pointer hover:bg-slate-800 transition-all">
+                <div onclick="openDepositModal()" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 cursor-pointer hover:bg-slate-800 transition-all border border-emerald-500/20">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <i class="fa-solid fa-wallet text-emerald-400"></i>
+                        <span class="text-xs font-bold text-white">إيداع 150$ وتفعيل المستوى A1</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-xs text-emerald-500"></i>
+                </div>
+                <div onclick="openWithdrawModal()" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 cursor-pointer hover:bg-slate-800 transition-all">
                     <div class="flex items-center space-x-3 space-x-reverse">
                         <i class="fa-solid fa-wallet text-amber-400"></i>
                         <span class="text-xs font-bold text-white">طلب سحب الأرباح</span>
@@ -218,54 +349,83 @@
             </div>
         </div>
 
-        <!-- BOTTOM NAVIGATION BAR -->
-        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-4 py-2 flex justify-between items-center z-40 backdrop-blur-xl bg-slate-950/80">
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-card border-t border-slate-800 px-3 py-2 flex justify-between items-center z-40 bg-slate-950/90 backdrop-blur-xl">
             <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center flex-1 text-amber-500 transition-all">
-                <i class="fa-solid fa-house text-lg"></i>
-                <span class="text-[10px] mt-1 font-bold">الرئيسية</span>
+                <i class="fa-solid fa-house text-base"></i>
+                <span class="text-[9px] mt-1 font-bold">الرئيسية</span>
             </button>
             <button onclick="switchTab('travel')" id="nav-travel" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
-                <i class="fa-solid fa-plane-up text-lg"></i>
-                <span class="text-[10px] mt-1">يسافر</span>
+                <i class="fa-solid fa-plane-up text-base"></i>
+                <span class="text-[9px] mt-1">يسافر</span>
             </button>
             <button onclick="switchTab('income')" id="nav-income" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
-                <i class="fa-solid fa-chart-line text-lg"></i>
-                <span class="text-[10px] mt-1">دخل</span>
+                <i class="fa-solid fa-chart-line text-base"></i>
+                <span class="text-[9px] mt-1">دخل</span>
+            </button>
+            <button onclick="switchTab('spin')" id="nav-spin" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
+                <i class="fa-solid fa-dharmachakra text-base"></i>
+                <span class="text-[9px] mt-1">الحظ</span>
             </button>
             <button onclick="switchTab('team')" id="nav-team" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
-                <i class="fa-solid fa-users text-lg"></i>
-                <span class="text-[10px] mt-1">فريق</span>
+                <i class="fa-solid fa-users text-base"></i>
+                <span class="text-[9px] mt-1">فريق</span>
             </button>
             <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center flex-1 text-slate-400 transition-all">
-                <i class="fa-solid fa-user text-lg"></i>
-                <span class="text-[10px] mt-1">ملكي</span>
+                <i class="fa-solid fa-user text-base"></i>
+                <span class="text-[9px] mt-1">ملكي</span>
             </button>
         </div>
 
     </div>
 
-    <!-- WITHDRAW MODAL -->
+    <div id="depositModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hide flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-emerald-500/40 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-10 -top-10 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <div class="w-8 h-8 rounded-xl emerald-gradient flex items-center justify-center text-white text-xs"><i class="fa-solid fa-wallet"></i></div>
+                    <h3 class="text-base font-bold text-white">إيداع وشحن المستوى A1</h3>
+                </div>
+                <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 relative z-10">
+                <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 text-center space-y-1">
+                    <span class="text-xs text-slate-400 block">قيمة شحن محفظتك للمستوى A1</span>
+                    <span class="text-2xl font-black text-emerald-400">150.00$ <span class="text-xs font-normal text-slate-400">USDT</span></span>
+                    <span class="text-[10px] text-amber-400 block mt-1">استرداد رأس المال خلال 3 أشهر • مدة الحساب 12 شهراً</span>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">عنوان شبكة التحويل (TRC20)</label>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono text-amber-400 select-all truncate">
+                        TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx99
+                    </div>
+                </div>
+                <button onclick="confirmDeposit()" class="w-full py-3.5 emerald-gradient text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all text-sm">
+                    تأكيد شحن 150$ وتفعيل A1 فوراً
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="withdrawModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hide flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-3xl w-full max-w-sm space-y-4 border border-amber-500/30">
             <div class="flex justify-between items-center">
-                <h3 class="text-base font-bold text-white">طلب سحب أسبوعي</h3>
+                <h3 class="text-base font-bold text-white">طلب سحب الأرباح</h3>
                 <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">المبلغ المطلوب (USDT)</label>
-                <input type="number" id=" withdrawAmount" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="20">
+                <input type="number" id="withdrawAmount" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="50">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">عنوان المحفظة (USDT TRC20)</label>
-                <input type="text" id="withdrawWallet" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="T...">
+                <input type="text" id="withdrawWallet" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500" placeholder="T...">
             </div>
             <button onclick="submitWithdraw()" class="w-full py-3.5 gold-gradient text-slate-950 font-bold rounded-xl shadow-lg">تأكيد طلب السحب</button>
         </div>
     </div>
 
     <script>
-        const API_URL = ''; // Same domain backend API
-
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
@@ -282,7 +442,7 @@
             } else {
                 document.getElementById('loginForm').classList.add('hide');
                 document.getElementById('registerForm').classList.remove('hide');
-                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl bg-purple-600 text-white transition-all";
+                document.getElementById('tabRegisterBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl purple-gradient text-white transition-all";
                 document.getElementById('tabLoginBtn').className = "flex-1 py-2.5 text-sm font-bold rounded-xl text-slate-400 transition-all";
             }
         }
@@ -343,16 +503,18 @@
                 if(res.ok) {
                     document.getElementById('authView').classList.add('hide');
                     document.getElementById('appView').classList.remove('hide');
+                    // إظهار شريط الدعم الذكي والتنبيهات عند تسجيل الدخول بنجاح
+                    document.getElementById('liveTickerBar').classList.remove('hide');
                     
                     document.getElementById('lblUserEmail').innerText = data.user.email;
                     document.getElementById('lblProfileEmail').innerText = data.user.email;
-                    document.getElementById('lblWalletBalance').innerText = `${data.user.assetWallet.toFixed(2)}$`;
-                    document.getElementById('lblProfileWallet').innerText = `${data.user.assetWallet.toFixed(2)}$`;
                     document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks;
                     document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
                     
-                    let percent = (data.user.todayCompletedTasks / 33) * 100;
+                    let maxTasks = 33;
+                    let percent = (data.user.todayCompletedTasks / maxTasks) * 100;
                     document.getElementById('taskProgressBar').style.width = `${percent > 100 ? 100 : percent}%`;
+                    document.getElementById('lblProgressPercent').innerText = `${Math.round(percent > 100 ? 100 : percent)}%`;
                 } else {
                     logout();
                 }
@@ -380,13 +542,32 @@
             }
         }
 
+        function triggerLuckySpin() {
+            const wheel = document.getElementById('spinWheelVisual');
+            wheel.style.transform = `rotate(${Math.floor(Math.random() * 1000 + 720)}deg)`;
+            setTimeout(() => {
+                showToast('مبروك! ربحت 1.50$ إضافية من عجلة الحظ');
+            }, 1000);
+        }
+
         function switchTab(tabName) {
-            ['home', 'travel', 'income', 'team', 'profile'].forEach(t => {
-                document.getElementById(`view-${t}`).classList.add('hide');
-                document.getElementById(`nav-${t}`).className = "flex flex-col items-center flex-1 text-slate-400 transition-all";
+            ['home', 'travel', 'income', 'spin', 'team', 'profile'].forEach(t => {
+                const el = document.getElementById(`view-${t}`);
+                if(el) el.classList.add('hide');
+                const nav = document.getElementById(`nav-${t}`);
+                if(nav) nav.className = "flex flex-col items-center flex-1 text-slate-400 transition-all";
             });
             document.getElementById(`view-${tabName}`).classList.remove('hide');
-            document.getElementById(`nav-${tabName}`).className = "flex flex-col items-center flex-1 text-amber-500 transition-all";
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            if(activeNav) activeNav.className = "flex flex-col items-center flex-1 text-amber-500 transition-all";
+        }
+
+        function openDepositModal() { document.getElementById('depositModal').classList.remove('hide'); }
+        function closeDepositModal() { document.getElementById('depositModal').classList.add('hide'); }
+        
+        function confirmDeposit() {
+            showToast('تم إرسال طلب شحن 150$ بنجاح، سيتم تفعيل المستوى A1 لحظياً');
+            closeDepositModal();
         }
 
         function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hide'); }
@@ -424,10 +605,11 @@
             localStorage.removeItem('token');
             document.getElementById('appView').classList.add('hide');
             document.getElementById('authView').classList.remove('hide');
+            // إخفاء شريط الدعم عند تسجيل الخروج
+            document.getElementById('liveTickerBar').classList.add('hide');
             showToast('تم تسجيل الخروج');
         }
 
-        // Auto check token on load
         window.onload = () => {
             if(localStorage.getItem('token')) {
                 loadUserProfile();
