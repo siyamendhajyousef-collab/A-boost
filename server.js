@@ -776,7 +776,7 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     await tx.save();
     res.json({ success: true, message: `تمت عملية (${action === 'approve' ? 'الموافقة' : 'الرفض'}) بنجاح` });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ تقني: ' + err.message });
+    res.status(500).json({ error: '`خطأ تقني: ` + err.message' });
   }
 });
 
