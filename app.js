@@ -361,10 +361,14 @@ function updateWalletData(wallet) {
 
     // دعم إمكانية إرسال كائن Wallet أو قيم مباشرة
     const balanceVal = wallet.balance !== undefined ? wallet.balance : wallet;
+    const depositBalanceVal = wallet.depositBalance !== undefined ? wallet.depositBalance : (currentUserData?.depositBalance || 0);
+    const profitBalanceVal = wallet.profitBalance !== undefined ? wallet.profitBalance : (currentUserData?.profitBalance || 0);
     const depositsVal = wallet.totalDeposits !== undefined ? wallet.totalDeposits : (currentUserData?.wallet?.totalDeposits || 0);
     const withdrawnVal = wallet.totalWithdrawn !== undefined ? wallet.totalWithdrawn : (currentUserData?.wallet?.totalWithdrawn || 0);
 
     const balance = Number(balanceVal || 0).toFixed(2);
+    const depositBal = Number(depositBalanceVal || 0).toFixed(2);
+    const profitBal = Number(profitBalanceVal || 0).toFixed(2);
     const deposits = Number(depositsVal || 0).toFixed(2);
     const withdrawn = Number(withdrawnVal || 0).toFixed(2);
 
@@ -372,6 +376,8 @@ function updateWalletData(wallet) {
     if (currentUserData) {
         if (!currentUserData.wallet) currentUserData.wallet = {};
         currentUserData.wallet.balance = parseFloat(balance);
+        currentUserData.wallet.depositBalance = parseFloat(depositBal);
+        currentUserData.wallet.profitBalance = parseFloat(profitBal);
         currentUserData.wallet.totalDeposits = parseFloat(deposits);
         currentUserData.wallet.totalWithdrawn = parseFloat(withdrawn);
         currentUserData.totalEarned = parseFloat(balance);
@@ -380,10 +386,14 @@ function updateWalletData(wallet) {
 
     // عناصر المحفظة بالواجهة الرئيسية
     const lblBalance = document.getElementById('lblWalletBalance');
+    const lblDepBalance = document.getElementById('lblDepositBalance');
+    const lblProfBalance = document.getElementById('lblProfitBalance');
     const lblDeposits = document.getElementById('lblTotalDeposits');
     const lblWithdrawn = document.getElementById('lblTotalWithdrawn');
 
     if (lblBalance) lblBalance.innerText = balance;
+    if (lblDepBalance) lblDepBalance.innerText = depositBal + ' $';
+    if (lblProfBalance) lblProfBalance.innerText = profitBal + ' $';
     if (lblDeposits) lblDeposits.innerText = deposits + ' $';
     if (lblWithdrawn) lblWithdrawn.innerText = withdrawn + ' $';
 
@@ -480,7 +490,7 @@ async function loadUserProfile() {
             }
 
             currentUserTier = data.user.tierCode || 'A1';
-            updateWalletData(data.user.wallet);
+            updateWalletData(data.user.wallet || data.user);
             updateProfileUI();
 
             updateTeamTreeData(data.user.teamStats || { l1: 0, l2: 0, l3: 0, total: 0 });
@@ -703,10 +713,16 @@ function copyProfileReferral() {
     executeCopyProcess(copyInput.value);
 }
 
+function copyPlatformWalletAddress() {
+    const walletInput = document.getElementById('platformWalletAddress');
+    if (!walletInput || !walletInput.value) return;
+    executeCopyProcess(walletInput.value);
+}
+
 function executeCopyProcess(textToCopy) {
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(textToCopy).then(() => {
-            showToast("تم نسخ رابط الدعوة بنجاح! 🚀", 'win');
+            showToast("تم النسخ بنجاح! 🚀", 'win');
         }).catch(() => {
             fallbackCopyText(textToCopy);
         });
@@ -723,7 +739,7 @@ function fallbackCopyText(text) {
     tempInput.setSelectionRange(0, 99999);
     try {
         document.execCommand('copy');
-        showToast("تم نسخ رابط الدعوة بنجاح! 🚀", 'win');
+        showToast("تم النسخ بنجاح! 🚀", 'win');
     } catch (err) {
         showToast("تعذر النسخ التلقائي، يرجى النسخ يدوياً");
     }
