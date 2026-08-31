@@ -299,11 +299,10 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 4. استخدم اللغة العربية الفصحى البسيطة.
 `;
 
-    // 🎯 تحديث النماذج لتتطابق مع المتاحة في المشروع بناءً على إعدادات Groq الخاص بك
     const modelsToTry = [
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.6-27b',
-      'qwen/qwen3.8-27b'
+      'llama-3.3-70b-versatile',
+      'llama3-8b-8192',
+      'mixtral-8x7b-32768'
     ];
 
     let replyText = null;
@@ -905,17 +904,32 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// 💳 الإيداع
+// 💳 الإيداع (تم تحديث المسار لمنع تقديم طلب جديد عند وجود طلب معلق)
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
-    const { amount, txHash } = req.body;
+    const { amount, txHash, receipt } = req.body;
     const depositNum = Number(amount);
     if (!depositNum || depositNum <= 0) {
-      return res.status(400).json({ error: 'مبلغ الإيداع غير صالح' });
+      return res.status(400).json({ success: false, error: 'مبلغ الإيداع غير صالح' });
     }
 
-    const safeTxHash = (txHash && typeof txHash === 'string') ? txHash.trim() : 'Manual Deposit Request';
+    // 1. التحقق من وجود طلب إيداع معلق مسبقاً لهذا المستخدم
+    const pendingDeposit = await Transaction.findOne({
+      userId: req.user.id,
+      type: 'deposit',
+      status: 'pending'
+    });
 
+    if (pendingDeposit) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'لديك طلب إيداع قيد الانتظار بالفعل. يرجى الانتظار حتى يتم معالجته قبل تقديم طلب جديد.' 
+      });
+    }
+
+    const safeTxHash = receipt || ((txHash && typeof txHash === 'string') ? txHash.trim() : 'Manual Deposit Request');
+
+    // 2. إنشاء طلب الإيداع الجديد في حال عدم وجود طلبات معلقة
     const depositTransaction = new Transaction({
       userId: req.user.id,
       type: 'deposit',
@@ -925,13 +939,15 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
     });
     await depositTransaction.save();
 
-    res.status(200).json({ 
+    res.status(201).json({ 
       success: true, 
-      message: 'تم إرسال طلب الإيداع وهو قيد المراجعة والتأكيد', 
+      message: 'تم تقديم طلب الإيداع بنجاح وهو قيد المراجعة والتأكيد', 
+      deposit: depositTransaction,
       transaction: depositTransaction 
     });
   } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
+    console.error('Error processing deposit:', err);
+    res.status(500).json({ success: false, error: 'حدث خطأ في السيرفر أثناء تقديم الطلب' });
   }
 });
 
