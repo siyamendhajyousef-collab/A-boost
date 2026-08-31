@@ -1,5 +1,4 @@
-// 🚀 BOOST Platform Backend Server
-// تم تحديث الكود وتطبيق أفضل الممارسات الأمنية وإدارة المعاملات المعقدة وفصل الأرباح عن الإيداع.
+// 🚀 BOOST Platform Backend Server - الإصدار المصحح والمكتمل
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -15,105 +14,54 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// 🟢 تفعيل الثقة بالبروكسي (ضروري جداً لمنصة Railway للتعامل مع X-Forwarded-For و rate-limit)
+// ===== الإعدادات الأساسية =====
 app.set('trust proxy', 1);
-
-// 🛡️ تعزيز حماية الخادم ورؤوس HTTP
-app.use(helmet({
-  contentSecurityPolicy: false
-}));
-
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 🌐 إعداد حماية CORS بشكل آمن ومرن
+// ===== CORS =====
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/$/, ''))
   : [];
-
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (process.env.NODE_ENV !== 'production') return callback(null, true);
-
     const isAllowed = allowedOrigins.includes(origin.replace(/\/$/, '')) || origin.endsWith('.railway.app');
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS Policy: Access denied'));
-    }
+    if (isAllowed) callback(null, true);
+    else callback(new Error('CORS Policy: Access denied'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
-// 🛡️ تحديد معدل الطلبات العامة
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'تم تجاوز حد الطلبات المسموح به، يرجى المحاولة لاحقاً' }
-});
+// ===== معدل الطلبات =====
+const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false, message: { error: 'تم تجاوز حد الطلبات' } });
 app.use('/api/', globalLimiter);
-
-// 🔒 حماية مضاعفة لمسارات المصادقة ضد هجمات التخمين (Brute-Force)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'تم تجاوز محاولات الدخول/التسجيل المسموحة، يرجى الانتظار 15 دقيقة.' }
-});
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'تم تجاوز محاولات الدخول' } });
 app.use('/api/auth/', authLimiter);
 
 app.use(express.static(path.join(__dirname)));
 
-// 🔐 إعداد المفاتيح السرية وتجنب الثغرات الافتراضية
+// ===== المتغيرات البيئية =====
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('❌ خطأ حرج: لم يتم تحديد JWT_SECRET في متغيرات البيئة!');
-  process.exit(1);
-}
-
-// 📧 إعداد عميل Resend
+if (!JWT_SECRET) { console.error('❌ JWT_SECRET مفقود'); process.exit(1); }
+const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
+if (!MONGO_URI) { console.error('❌ MONGO_URI مفقود'); process.exit(1); }
 const resendKey = process.env.RESEND_API_KEY;
 const resend = resendKey ? new Resend(resendKey) : null;
-
-// 🔔 إعداد مفاتيح Web Push (VAPID Keys)
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY;
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
-
 if (publicVapidKey && privateVapidKey) {
-  try {
-    webpush.setVapidDetails(
-      'mailto:support@boost-platform.com',
-      publicVapidKey,
-      privateVapidKey
-    );
-  } catch (e) {
-    console.warn('⚠️ خطأ في تهيئة Web Push VAPID:', e.message);
-  }
+  try { webpush.setVapidDetails('mailto:support@boost-platform.com', publicVapidKey, privateVapidKey); } catch (e) { console.warn('WebPush error:', e.message); }
 }
 
-// 🕹️ متغيرات إعدادات الألعاب
-let gameSettings = {
-  spinMin: 1,
-  spinMax: 10,
-  boxMin: 5,
-  boxMax: 25
-};
+// ===== إعدادات الألعاب =====
+let gameSettings = { spinMin: 1, spinMax: 10, boxMin: 5, boxMax: 25 };
 
-// ==================== 1. الاتصال بقاعدة البيانات ====================
-const MONGO_URI = process.env.MONGO_URI || process.env.DATABASE_URL;
-
-if (!MONGO_URI) {
-  console.error('❌ خطأ حرج: لم يتم العثور على MONGO_URI في متغيرات البيئة!');
-  process.exit(1);
-}
-
-// ==================== 2. نماذج قاعدة البيانات (Models) ====================
+// ==================== نماذج قاعدة البيانات ====================
 
 const vipLevelSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true, uppercase: true, trim: true },
@@ -123,9 +71,10 @@ const vipLevelSchema = new mongoose.Schema({
   dailyProfit: { type: Number, required: true, min: 0 },
   monthlyProfit: { type: Number, required: true, min: 0 },
   yearlyProfit: { type: Number, required: true, min: 0 },
-  badgeColor: { type: String, default: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' }
+  badgeColor: { type: String, default: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
+  durationDays: { type: Number, default: 365, min: 1 },
+  commissionRate: { type: Number, default: 0, min: 0, max: 100 }
 }, { timestamps: true });
-
 const VipLevel = mongoose.model('VipLevel', vipLevelSchema);
 
 const userSchema = new mongoose.Schema({
@@ -140,9 +89,9 @@ const userSchema = new mongoose.Schema({
   walletAddress: { type: String, default: '', trim: true },
   isBanned: { type: Boolean, default: false },
   wallet: {
-    balance: { type: Number, default: 0, min: 0 },         // الرصيد الإجمالي
-    depositBalance: { type: Number, default: 0, min: 0 },  // رصيد الإيداع (غير قابل للسحب)
-    profitBalance: { type: Number, default: 0, min: 0 },   // رصيد الأرباح (قابل للسحب)
+    balance: { type: Number, default: 0, min: 0 },
+    depositBalance: { type: Number, default: 0, min: 0 },
+    profitBalance: { type: Number, default: 0, min: 0 },
     totalDeposits: { type: Number, default: 0, min: 0 },
     totalWithdrawn: { type: Number, default: 0, min: 0 }
   },
@@ -150,9 +99,14 @@ const userSchema = new mongoose.Schema({
   resetOTPExpire: { type: Date, default: null },
   twoFactorCode: { type: String, default: null },
   twoFactorExpire: { type: Date, default: null },
-  pushSubscription: { type: Object, default: null }
+  pushSubscription: { type: Object, default: null },
+  teamStats: {
+    l1: { type: Number, default: 0 },
+    l2: { type: Number, default: 0 },
+    l3: { type: Number, default: 0 },
+    total: { type: Number, default: 0 }
+  }
 }, { timestamps: true });
-
 const User = mongoose.model('User', userSchema);
 
 const transactionSchema = new mongoose.Schema({
@@ -160,9 +114,9 @@ const transactionSchema = new mongoose.Schema({
   type: { type: String, enum: ['deposit', 'withdraw', 'reward', 'staking_reward', 'referral_commission', 'upgrade_deduction'], required: true },
   amount: { type: Number, required: true },
   walletAddress: { type: String, required: true, trim: true },
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  txHash: { type: String, default: '' }
 }, { timestamps: true });
-
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
 const stakingSchema = new mongoose.Schema({
@@ -175,1434 +129,672 @@ const stakingSchema = new mongoose.Schema({
   endDate: { type: Date, required: true },
   status: { type: String, enum: ['active', 'completed', 'claimed'], default: 'active' }
 }, { timestamps: true });
-
 const Staking = mongoose.model('Staking', stakingSchema);
 
-// دالة تهيئة مستويات VIP الافتراضية
+// ===== تهيئة المستويات الافتراضية =====
 async function seedVipLevels() {
   try {
     const count = await VipLevel.countDocuments();
     if (count === 0) {
-      const defaultLevels = [
-        { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
-        { code: 'A2', name: 'المستوى A2 المتقدم', price: 150, tasks: 35, dailyProfit: 8.00, monthlyProfit: 240.00, yearlyProfit: 2920.00, badgeColor: 'from-blue-500/20 to-cyan-700/20 border-blue-500/40 text-blue-400' },
-        { code: 'A3', name: 'المستوى A3 الخبير', price: 350, tasks: 40, dailyProfit: 20.00, monthlyProfit: 600.00, yearlyProfit: 7300.00, badgeColor: 'from-purple-500/20 to-indigo-700/20 border-purple-500/40 text-purple-400' },
-        { code: 'A4', name: 'المستوى A4 المحترف', price: 750, tasks: 45, dailyProfit: 45.00, monthlyProfit: 1350.00, yearlyProfit: 16425.00, badgeColor: 'from-rose-500/20 to-pink-700/20 border-rose-500/40 text-rose-400' },
-        { code: 'A5', name: 'المستوى A5 الخارق (VIP)', price: 1500, tasks: 50, dailyProfit: 100.00, monthlyProfit: 3000.00, yearlyProfit: 36500.00, badgeColor: 'from-emerald-500/20 to-teal-700/20 border-emerald-500/40 text-emerald-400' }
-      ];
-      await VipLevel.insertMany(defaultLevels);
-      console.log('🌟 تم إنشاء مستويات VIP الافتراضية بنجاح في قاعدة البيانات');
+      await VipLevel.insertMany([
+        { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400', durationDays: 365, commissionRate: 5 },
+        { code: 'A2', name: 'المستوى A2 المتقدم', price: 150, tasks: 35, dailyProfit: 8.00, monthlyProfit: 240.00, yearlyProfit: 2920.00, badgeColor: 'from-blue-500/20 to-cyan-700/20 border-blue-500/40 text-blue-400', durationDays: 365, commissionRate: 7 },
+        { code: 'A3', name: 'المستوى A3 الخبير', price: 350, tasks: 40, dailyProfit: 20.00, monthlyProfit: 600.00, yearlyProfit: 7300.00, badgeColor: 'from-purple-500/20 to-indigo-700/20 border-purple-500/40 text-purple-400', durationDays: 365, commissionRate: 10 },
+        { code: 'A4', name: 'المستوى A4 المحترف', price: 750, tasks: 45, dailyProfit: 45.00, monthlyProfit: 1350.00, yearlyProfit: 16425.00, badgeColor: 'from-rose-500/20 to-pink-700/20 border-rose-500/40 text-rose-400', durationDays: 365, commissionRate: 12 },
+        { code: 'A5', name: 'المستوى A5 الخارق (VIP)', price: 1500, tasks: 50, dailyProfit: 100.00, monthlyProfit: 3000.00, yearlyProfit: 36500.00, badgeColor: 'from-emerald-500/20 to-teal-700/20 border-emerald-500/40 text-emerald-400', durationDays: 365, commissionRate: 15 }
+      ]);
+      console.log('🌟 تم إنشاء مستويات VIP الافتراضية');
     }
-  } catch (err) {
-    console.error('⚠️ خطأ أثناء تهيئة مستويات VIP:', err.message);
-  }
+  } catch (err) { console.error('⚠️ خطأ في تهيئة VIP:', err.message); }
 }
 
-// ==================== 3. موسط الحماية (Middleware) ====================
-
+// ===== موسطات المصادقة =====
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(403).json({ error: 'مطلوب توكن المصادقة' });
-  
+  if (!authHeader) return res.status(403).json({ error: 'مطلوب توكن' });
   const token = authHeader.split(' ')[1];
-  if (!token) return res.status(403).json({ error: 'صيغة التوكن غير صحيحة' });
-
+  if (!token) return res.status(403).json({ error: 'صيغة غير صحيحة' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id).select('-password -resetOTP -twoFactorCode');
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-    if (user.isBanned) return res.status(403).json({ error: 'تم تعليق حسابك من قبل الإدارة. يرجى التواصل مع الدعم الفني.' });
-
+    if (!user) return res.status(404).json({ error: 'مستخدم غير موجود' });
+    if (user.isBanned) return res.status(403).json({ error: 'تم تعليق الحساب' });
     req.user = decoded;
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'التوكن غير صالح أو انتهت صلاحيته' });
-  }
+  } catch (err) { return res.status(401).json({ error: 'توكن غير صالح' }); }
 };
 
 const verifyAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(401).json({ error: 'غير مصرح: لا يوجد توكن' });
-
+    if (!authHeader) return res.status(401).json({ error: 'غير مصرح' });
     const token = authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'صيغة التوكن غير صحيحة' });
-
+    if (!token) return res.status(401).json({ error: 'صيغة غير صحيحة' });
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
-
-    if (!user || user.role !== 'admin' || user.isBanned) {
-      return res.status(403).json({ error: 'وصول مرفوض: هذه المنطقة مخصصة للمدير فقط' });
-    }
-
+    if (!user || user.role !== 'admin' || user.isBanned) return res.status(403).json({ error: 'وصول مرفوض' });
     req.user = user;
     next();
-  } catch (error) {
-    return res.status(401).json({ error: 'جلسة غير صالحة أو انتهت الصلاحية' });
-  }
+  } catch (error) { return res.status(401).json({ error: 'جلسة غير صالحة' }); }
 };
 
-// ==================== 4. المسارات العامة (Public & User APIs) ====================
+// ============================================================
+// ===== 1. المسارات العامة والمستخدم =====
+// ============================================================
 
-// 💎 مسار جلب قائمة مستويات VIP
+// جلب مستويات VIP
 app.get('/api/vip-levels', async (req, res) => {
-  try {
-    const levels = await VipLevel.find().sort({ price: 1 });
-    res.status(200).json(levels);
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+  try { const levels = await VipLevel.find().sort({ price: 1 }); res.status(200).json(levels); } 
+  catch (err) { res.status(500).json({ error: 'خطأ في المعالجة' }); }
 });
 
-// 🤖 مسار المستشار الذكي (Ag AI Advisor)
+// المستشار الذكي
 app.post('/api/ai/chat', verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message || typeof message !== 'string' || message.trim() === '') {
-      return res.status(400).json({ reply: 'يرجى كتابة سؤالك أولاً.' });
-    }
-
+    if (!message || message.trim() === '') return res.status(400).json({ reply: 'يرجى كتابة سؤالك.' });
     const user = await User.findById(req.user.id).select('-password');
     const userName = user ? user.email.split('@')[0] : 'المستخدم';
-    const userBalance = user && user.wallet ? user.wallet.balance : 0;
-    const userTier = user ? user.tierCode : 'A1';
-
-    const cleanMessage = message.trim().toLowerCase();
-    const flagKeywords = ['نصب', 'احتيال', 'سرقة', 'وهمي', 'فاشل', 'كذب', 'تزوير', 'حرام'];
-    const isFlagged = flagKeywords.some(word => cleanMessage.includes(word));
-
-    if (isFlagged) {
-      return res.json({
-        reply: `أهلاً بك يا ${userName}! جميع المعاملات في المنصة تشفر وتدار بتبعية عالية لضمان الأمان. نهدف دائماً لتوفير بيئة استثمارية آمنة ومربحة لجميع أعضائنا.`
-      });
-    }
-
+    const userBalance = user?.wallet?.balance || 0;
+    const userTier = user?.tierCode || 'A1';
     const apiKey = process.env.GROQ_API_KEY || process.env.Boostai;
-    if (!apiKey) {
-      console.error('❌ Groq API Key غير معرف في متغيرات البيئة.');
-      return res.status(500).json({ reply: "المستشار الذكي غير متاح حالياً (مفتاح API غير معرف)." });
-    }
-
+    if (!apiKey) return res.status(500).json({ reply: "المستشار غير متاح حالياً." });
     const groq = new Groq({ apiKey: apiKey.trim() });
-
-    const systemPrompt = `
-أنت "Ag AI Advisor"، المستشار الذكي والداعم الرسمي لمنصة Ag Boost.
-شخصيتك: احترافية، إيجابية جداً، مشجعة، وودودة.
-
-معلومات العميل الحالي:
-- الاسم: ${userName}
-- الرصيد الحالي: ${userBalance}$
-- المستوى الحالي: ${userTier}
-
-قواعد الإجابة الصارمة:
-1. أجب بشكل مباشر وديناميكي على سؤال المستخدم المحدد دون تكرار عبارات ترحيبية ثابتة.
-2. اجعل الإجابة مختصرة ومفيدة (لا تتجاوز 2-3 جمل).
-3. شجع المستخدم على إكمال المهام اليومية، الترقية للمستويات الأعلى، ودعوة الأصدقاء لزيادة أرباحه.
-4. استخدم اللغة العربية الفصحى البسيطة.
-`;
-
-    const modelsToTry = [
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.8-27b',
-      'qwen/qwen3.6-27b'
-    ];
-
+    const systemPrompt = `أنت "Ag AI Advisor". معلومات العميل: الاسم: ${userName}, الرصيد: ${userBalance}$, المستوى: ${userTier}. أجب باختصار (2-3 جمل) وبشكل مباشر. شجع على إكمال المهام والترقية.`;
+    const modelsToTry = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'qwen/qwen3.6-27b'];
     let replyText = null;
-    let lastError = null;
-
     for (const model of modelsToTry) {
       try {
         const completion = await groq.chat.completions.create({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message }
-          ],
-          model: model,
-          temperature: 0.7,
-          max_tokens: 512,
-          top_p: 1
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }],
+          model, temperature: 0.7, max_tokens: 512, top_p: 1
         });
-
         replyText = completion.choices[0]?.message?.content;
         if (replyText) break;
-      } catch (err) {
-        console.warn(`⚠️ فشل الاتصال بالنموذج ${model}:`, err.message);
-        lastError = err;
-      }
+      } catch (e) { console.warn(`⚠️ فشل النموذج ${model}`); }
     }
-
-    if (replyText) {
-      return res.json({ reply: replyText.trim() });
-    } else {
-      console.error('❌ خطأ Groq API التفصيلي:', lastError);
-      return res.status(500).json({ reply: "عذراً، تعذر الحصول على رد من المستشار الذكي حالياً." });
-    }
-  } catch (error) {
-    console.error('❌ خطأ في مسار /api/ai/chat:', error);
-    return res.status(500).json({ reply: "حدث خطأ غير متوقع أثناء الاتصال بالمستشار الذكي." });
-  }
+    if (replyText) return res.json({ reply: replyText.trim() });
+    return res.status(500).json({ reply: "عذراً، تعذر الحصول على رد." });
+  } catch (error) { console.error('❌ AI Error:', error); return res.status(500).json({ reply: "حدث خطأ." }); }
 });
 
-// 🚀 مسار ترقية المستوى (تحديث الخصم الآمن من الرصيد المُودع ثم الأرباح)
+// ترقية المستوى (المسار الرئيسي)
 app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const { targetTier } = req.body;
-    
+    if (!targetTier) { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'يرجى تحديد المستوى' }); }
     const user = await User.findById(req.user.id).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    if (!user) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'مستخدم غير موجود' }); }
+    const targetLevel = await VipLevel.findOne({ code: targetTier.toUpperCase() }).session(session);
+    if (!targetLevel) { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'المستوى غير موجود' }); }
+    if (user.wallet.balance < targetLevel.price) {
+      await session.abortTransaction(); session.endSession();
+      return res.status(400).json({ error: `رصيد غير كافٍ. المطلوب: ${targetLevel.price}$، المتاح: ${user.wallet.balance}$` });
     }
-
-    const levels = await VipLevel.find().sort({ price: 1 }).session(session);
-    const levelCodes = levels.map(l => l.code);
-
-    let nextTierCode = targetTier;
-    if (!nextTierCode) {
-      const currentIndex = levelCodes.indexOf(user.tierCode);
-      if (currentIndex === -1 || currentIndex === levelCodes.length - 1) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({ error: 'أنت في المستوى الأقصى بالفعل' });
-      }
-      nextTierCode = levelCodes[currentIndex + 1];
-    }
-
-    const targetLevelData = levels.find(l => l.code === nextTierCode);
-    if (!targetLevelData) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'المستوى المطلوب غير موجود' });
-    }
-
-    // 1. التحقق من كفاية الرصيد الإجمالي
-    if (user.wallet.balance < targetLevelData.price) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ 
-        error: `رصيد المحفظة غير كافٍ للترقية إلى ${targetLevelData.name}. المبلغ المطلوب: ${targetLevelData.price}$، بينما رصيدك المتاح: ${user.wallet.balance}$` 
-      });
-    }
-
-    // 2. خصم سعر الترقية: يُخصم أولوياً من رصيد الإيداع ثم من رصيد الأرباح
-    let remainingPrice = targetLevelData.price;
-    if (user.wallet.depositBalance >= remainingPrice) {
-      user.wallet.depositBalance -= remainingPrice;
-    } else {
-      remainingPrice -= user.wallet.depositBalance;
-      user.wallet.depositBalance = 0;
-      user.wallet.profitBalance -= remainingPrice;
-    }
-
-    // 3. تحديث الرصيد الإجمالي ومستوى الحساب
+    let remaining = targetLevel.price;
+    if (user.wallet.depositBalance >= remaining) user.wallet.depositBalance -= remaining;
+    else { remaining -= user.wallet.depositBalance; user.wallet.depositBalance = 0; user.wallet.profitBalance -= remaining; }
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
-    user.tierCode = targetLevelData.code;
+    user.tierCode = targetLevel.code;
     await user.save({ session });
-
-    // 4. تسجيل عملية الخصم في سجل المعاملات المالية
-    const upgradeTx = new Transaction({
-      userId: user._id,
-      type: 'upgrade_deduction',
-      amount: targetLevelData.price,
-      walletAddress: `Upgrade to ${targetLevelData.name} (${targetLevelData.code})`,
-      status: 'approved'
-    });
+    const upgradeTx = new Transaction({ userId: user._id, type: 'upgrade_deduction', amount: targetLevel.price, walletAddress: `Upgrade to ${targetLevel.name}`, status: 'approved' });
     await upgradeTx.save({ session });
-
-    // 5. منح العمولة للشخص الموصي (توزيع عمولة الإحالة)
     if (user.referredBy) {
       const referrer = await User.findOne({ referralCode: user.referredBy }).session(session);
       if (referrer) {
-        const commissionAmount = parseFloat((targetLevelData.price * 0.10).toFixed(2));
-        referrer.wallet.profitBalance += commissionAmount;
+        const commission = parseFloat((targetLevel.price * 0.10).toFixed(2));
+        referrer.wallet.profitBalance += commission;
         referrer.wallet.balance = referrer.wallet.depositBalance + referrer.wallet.profitBalance;
         await referrer.save({ session });
-
-        const commissionTx = new Transaction({
-          userId: referrer._id,
-          type: 'referral_commission',
-          amount: commissionAmount,
-          walletAddress: `Commission from ${user.email}`,
-          status: 'approved'
-        });
+        const commissionTx = new Transaction({ userId: referrer._id, type: 'referral_commission', amount: commission, walletAddress: `Commission from ${user.email}`, status: 'approved' });
         await commissionTx.save({ session });
       }
     }
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(200).json({ 
-      success: true, 
-      message: `تمت الترقية بنجاح إلى ${targetLevelData.name} وتم خصم ${targetLevelData.price}$ من رصيدك.`, 
-      tierCode: user.tierCode,
-      wallet: user.wallet
-    });
+    await session.commitTransaction(); session.endSession();
+    res.status(200).json({ success: true, message: `تمت الترقية إلى ${targetLevel.name}`, tierCode: user.tierCode, wallet: user.wallet });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error('Error during upgrade process:', err);
-    res.status(500).json({ error: 'خطأ تقني أثناء معالجة الترقية' });
+    await session.abortTransaction(); session.endSession();
+    console.error('Upgrade error:', err);
+    res.status(500).json({ error: 'خطأ تقني' });
   }
 });
 
-// 📌 مسار حفظ/تحديث عنوان محفظة السحب
+// مسار التوافق مع /api/tiers/upgrade (لـ index.html)
+app.post('/api/tiers/upgrade', verifyToken, (req, res) => {
+  req.url = '/api/user/upgrade';
+  app._router.handle(req, res);
+});
+
+// حفظ عنوان المحفظة
 app.post('/api/user/wallet-address', verifyToken, async (req, res) => {
   try {
     const { walletAddress } = req.body;
-
-    if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.trim() === '') {
-      return res.status(400).json({ error: 'يرجى إدخال عنوان محفظة صالح' });
-    }
-
+    if (!walletAddress || walletAddress.trim() === '') return res.status(400).json({ error: 'عنوان غير صالح' });
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
-
-    if (user.walletAddress && user.walletAddress.trim() !== '') {
-      return res.status(400).json({ 
-        error: 'عنوان المحفظة مثبت سابقاً، لا يمكنك تعديله إلا عن طريق التواصل مع الأدمن.' 
-      });
-    }
-
+    if (!user) return res.status(404).json({ error: 'مستخدم غير موجود' });
+    if (user.walletAddress && user.walletAddress.trim() !== '') return res.status(400).json({ error: 'مثبت سابقاً' });
     user.walletAddress = walletAddress.trim();
     await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'تم حفظ وتثبيت عنوان المحفظة بنجاح',
-      walletAddress: user.walletAddress
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.status(200).json({ success: true, message: 'تم التثبيت', walletAddress: user.walletAddress });
+  } catch (err) { res.status(500).json({ error: 'خطأ في المعالجة' }); }
 });
 
-// 🌳 مسار جلب شجرة الفريق
+// شجرة الفريق
 app.get('/api/user/referrals', verifyToken, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
-    if (!currentUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    const userCode = currentUser.referralCode ? currentUser.referralCode.trim().toUpperCase() : '';
-
-    const referrals = await User.find({ 
-      referredBy: userCode
-    })
-      .select('email tierCode createdAt wallet.balance')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      referralCode: currentUser.referralCode,
-      referredBy: currentUser.referredBy || null,
-      totalReferrals: referrals.length,
-      referrals
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    if (!currentUser) return res.status(404).json({ error: 'مستخدم غير موجود' });
+    const code = currentUser.referralCode?.trim().toUpperCase() || '';
+    const l1 = await User.find({ referredBy: code }).select('email tierCode wallet.balance referralCode');
+    const l1Codes = l1.map(u => u.referralCode).filter(c => c);
+    const l2 = await User.find({ referredBy: { $in: l1Codes } }).select('email tierCode wallet.balance referralCode');
+    const l2Codes = l2.map(u => u.referralCode).filter(c => c);
+    const l3 = await User.find({ referredBy: { $in: l2Codes } }).select('email tierCode wallet.balance');
+    const total = l1.length + l2.length + l3.length;
+    await User.findByIdAndUpdate(req.user.id, { $set: { 'teamStats.l1': l1.length, 'teamStats.l2': l2.length, 'teamStats.l3': l3.length, 'teamStats.total': total } });
+    res.status(200).json({ success: true, referralCode: currentUser.referralCode, totalReferrals: total, team: { level1: l1, level2: l2, level3: l3 } });
+  } catch (err) { res.status(500).json({ error: 'خطأ في المعالجة' }); }
 });
 
-// 🔒 مسارات أمان التحقق الثنائي (2FA)
+// إرسال 2FA
 app.post('/api/user/2fa/send-code', verifyToken, async (req, res) => {
   try {
-    if (!resend) return res.status(500).json({ error: 'خدمة البريد الإلكتروني غير مهيأة' });
-
+    if (!resend) return res.status(500).json({ error: 'البريد غير مهيأ' });
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
+    if (!user) return res.status(404).json({ error: 'مستخدم غير موجود' });
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    user.twoFactorCode = code;
-    user.twoFactorExpire = Date.now() + 5 * 60 * 1000;
+    user.twoFactorCode = code; user.twoFactorExpire = Date.now() + 5 * 60 * 1000;
     await user.save();
-
     await resend.emails.send({
       from: 'BOOST Platform <onboarding@resend.dev>',
       to: user.email,
-      subject: 'رمز التحقق الثنائي (2FA) - BOOST',
-      html: `
-        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #0f172a; color: #ffffff; border-radius: 10px;">
-          <h2 style="color: #38bdf8; margin-bottom: 20px;">منصة BOOST - تأكيد العملية</h2>
-          <p style="font-size: 16px;">رمز التحقق الخاص لتأكيد عملية السحب هو:</p>
-          <div style="background-color: #1e293b; padding: 15px 25px; border-radius: 8px; display: inline-block; margin: 15px 0;">
-            <h1 style="color: #fbbf24; font-size: 36px; letter-spacing: 6px; margin: 0;">${code}</h1>
-          </div>
-          <p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">هذا الرمز صالح لمدة 5 دقائق فقط.</p>
-        </div>
-      `
+      subject: 'رمز 2FA - BOOST',
+      html: `<div style="direction:rtl;padding:20px;background:#0f172a;color:#fff;"><h2 style="color:#38bdf8;">رمز التحقق</h2><div style="background:#1e293b;padding:15px 25px;margin:15px 0;"><h1 style="color:#fbbf24;font-size:36px;">${code}</h1></div><p style="color:#94a3b8;">صالح لمدة 5 دقائق</p></div>`
     });
-
-    res.status(200).json({ success: true, message: 'تم إرسال رمز التحقق الثنائي إلى بريدك الإلكتروني' });
-  } catch (err) {
-    res.status(500).json({ error: 'خطأ في إرسال الرمز' });
-  }
+    res.status(200).json({ success: true, message: 'تم الإرسال' });
+  } catch (err) { res.status(500).json({ error: 'خطأ في الإرسال' }); }
 });
 
-// 🔔 مسار حفظ اشتراك الإشعارات الفورية
+// مسار توافق 2FA للسحب
+app.post('/api/auth/send-2fa-otp', verifyToken, (req, res) => {
+  req.url = '/api/user/2fa/send-code';
+  app._router.handle(req, res);
+});
+
+// اشتراك الإشعارات
 app.post('/api/push/subscribe', verifyToken, async (req, res) => {
   try {
     const subscription = req.body;
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: 'بيانات الاشتراك غير صالحة' });
-    }
-
+    if (!subscription?.endpoint) return res.status(400).json({ error: 'بيانات غير صالحة' });
     await User.findByIdAndUpdate(req.user.id, { pushSubscription: subscription });
-    res.status(201).json({ success: true, message: 'تم حفظ اشتراك الإشعارات بنجاح' });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.status(201).json({ success: true, message: 'تم الحفظ' });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 📈 مسارات نظام التخزين المؤقت (Staking Pool)
+// ===== نظام التخزين المؤقت =====
 app.post('/api/staking/create', verifyToken, async (req, res) => {
   try {
     const { amount, durationDays } = req.body;
     const stakeAmount = Number(amount);
     const duration = Number(durationDays);
-
-    if (!stakeAmount || stakeAmount <= 0) {
-      return res.status(400).json({ error: 'مبلغ التخزين غير صالح' });
-    }
-
-    if (![7, 15, 30].includes(duration)) {
-      return res.status(400).json({ error: 'مدة التخزين المتاحة هي 7، 15، أو 30 يوماً فقط' });
-    }
-
-    let profitRate = 0.05;
-    if (duration === 15) profitRate = 0.12;
-    if (duration === 30) profitRate = 0.30;
-
+    if (!stakeAmount || stakeAmount <= 0) return res.status(400).json({ error: 'مبلغ غير صالح' });
+    if (![7, 15, 30].includes(duration)) return res.status(400).json({ error: 'المدة غير صالحة' });
+    const profitRate = duration === 7 ? 0.05 : duration === 15 ? 0.12 : 0.30;
     const expectedProfit = parseFloat((stakeAmount * profitRate).toFixed(2));
-
     const user = await User.findById(req.user.id);
-    if (!user || user.wallet.balance < stakeAmount) {
-      return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ لإنشاء حزمة التخزين' });
-    }
-
-    let remainingStake = stakeAmount;
-    if (user.wallet.depositBalance >= remainingStake) {
-      user.wallet.depositBalance -= remainingStake;
-    } else {
-      remainingStake -= user.wallet.depositBalance;
-      user.wallet.depositBalance = 0;
-      user.wallet.profitBalance -= remainingStake;
-    }
-
+    if (!user || user.wallet.balance < stakeAmount) return res.status(400).json({ error: 'رصيد غير كافٍ' });
+    let remaining = stakeAmount;
+    if (user.wallet.depositBalance >= remaining) user.wallet.depositBalance -= remaining;
+    else { remaining -= user.wallet.depositBalance; user.wallet.depositBalance = 0; user.wallet.profitBalance -= remaining; }
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     await user.save();
-
     const endDate = new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
-
-    const newStaking = new Staking({
-      userId: user._id,
-      amount: stakeAmount,
-      durationDays: duration,
-      profitRate,
-      expectedProfit,
-      endDate,
-      status: 'active'
-    });
-
-    await newStaking.save();
-
-    res.status(200).json({ success: true, message: 'تم تفعيل حزمة التخزين بنجاح', staking: newStaking });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const staking = new Staking({ userId: user._id, amount: stakeAmount, durationDays: duration, profitRate, expectedProfit, endDate, status: 'active' });
+    await staking.save();
+    res.status(200).json({ success: true, message: 'تم التفعيل', staking });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
 app.get('/api/staking/my', verifyToken, async (req, res) => {
   try {
     const stakings = await Staking.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.status(200).json({ success: true, stakings });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
 app.post('/api/staking/claim', verifyToken, async (req, res) => {
   try {
     const { stakingId } = req.body;
     const staking = await Staking.findOne({ _id: stakingId, userId: req.user.id });
-
-    if (!staking) return res.status(404).json({ error: 'حزمة التخزين غير موجودة' });
-    if (staking.status !== 'active') return res.status(400).json({ error: 'هذه الحزمة منتهية أو تم استلام أرباحها مسبقاً' });
-
-    if (new Date() < new Date(staking.endDate)) {
-      return res.status(400).json({ error: 'لم تنتهِ مدة التخزين المحددة بعد' });
-    }
-
-    staking.status = 'claimed';
-    await staking.save();
-
+    if (!staking) return res.status(404).json({ error: 'غير موجود' });
+    if (staking.status !== 'active' || new Date() < new Date(staking.endDate)) return res.status(400).json({ error: 'غير مكتمل' });
+    staking.status = 'claimed'; await staking.save();
     const user = await User.findById(req.user.id);
     user.wallet.depositBalance += staking.amount;
     user.wallet.profitBalance += staking.expectedProfit;
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     await user.save();
-
-    const tx = new Transaction({
-      userId: req.user.id,
-      type: 'staking_reward',
-      amount: staking.amount + staking.expectedProfit,
-      walletAddress: 'Staking Pool Reward',
-      status: 'approved'
-    });
-    await tx.save();
-
-    res.status(200).json({ success: true, message: 'تم استلام رأس المال والأرباح بنجاح', wallet: user.wallet });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    await new Transaction({ userId: req.user.id, type: 'staking_reward', amount: staking.amount + staking.expectedProfit, walletAddress: 'Staking Reward', status: 'approved' }).save();
+    res.status(200).json({ success: true, message: 'تم الاستلام', wallet: user.wallet });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🏆 لوحة المتصدرين الحية
+// لوحة المتصدرين
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const topUsers = await User.find({ isBanned: false })
-      .sort({ 'wallet.balance': -1 })
-      .limit(10)
-      .select('email wallet.balance tierCode');
-
-    const leaderboard = topUsers.map((u, index) => {
+    const topUsers = await User.find({ isBanned: false }).sort({ 'wallet.balance': -1 }).limit(10).select('email wallet.balance tierCode');
+    const leaderboard = topUsers.map((u, i) => {
       const parts = u.email.split('@');
       const name = parts[0];
-      const maskedEmail = name.length > 3 ? name.substring(0, 3) + '***@' + parts[1] : '***@' + parts[1];
-      return {
-        rank: index + 1,
-        email: maskedEmail,
-        balance: u.wallet ? u.wallet.balance : 0,
-        tierCode: u.tierCode
-      };
+      const masked = name.length > 3 ? name.substring(0, 3) + '***@' + parts[1] : '***@' + parts[1];
+      return { rank: i + 1, email: masked, balance: u.wallet?.balance || 0, tierCode: u.tierCode };
     });
-
     res.status(200).json({ success: true, leaderboard });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 📝 تسجيل مستخدم جديد
+// ============================================================
+// ===== 2. مسارات المصادقة =====
+// ============================================================
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, referralCode } = req.body;
-    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({ error: 'جميع الحقول مطلوبة وبصيغة صحيحة' });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 8 أحرف' });
-    }
-
+    if (!email || !password) return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+    if (password.length < 8) return res.status(400).json({ error: 'كلمة المرور 8 أحرف على الأقل' });
     const cleanEmail = email.trim().toLowerCase();
-    const existingUser = await User.findOne({ email: cleanEmail });
-    if (existingUser) {
-      return res.status(400).json({ error: 'البريد الإلكتروني مسجل بالفعل' });
+    if (await User.findOne({ email: cleanEmail })) return res.status(400).json({ error: 'البريد مسجل' });
+    let validRef = null;
+    if (referralCode && referralCode.trim() !== '') {
+      const referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+      if (referrer) validRef = referrer.referralCode;
     }
-
-    let validReferralCode = null;
-    if (referralCode && typeof referralCode === 'string' && referralCode.trim() !== '') {
-      const cleanCode = referralCode.trim().toUpperCase();
-      const referrerUser = await User.findOne({ referralCode: cleanCode });
-      if (referrerUser) {
-        validReferralCode = referrerUser.referralCode;
+    const hashed = await bcrypt.hash(password, 12);
+    const newRefCode = ('BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90)).toUpperCase();
+    const newUser = new User({ email: cleanEmail, password: hashed, referralCode: newRefCode, referredBy: validRef, wallet: { balance: 0, depositBalance: 0, profitBalance: 0, totalDeposits: 0, totalWithdrawn: 0 } });
+    await newUser.save();
+    if (validRef) {
+      const referrer = await User.findOne({ referralCode: validRef });
+      if (referrer) {
+        const l1 = await User.countDocuments({ referredBy: validRef });
+        const l1Codes = (await User.find({ referredBy: validRef }).select('referralCode')).map(u => u.referralCode).filter(c => c);
+        const l2 = await User.countDocuments({ referredBy: { $in: l1Codes } });
+        const l2Codes = (await User.find({ referredBy: { $in: l1Codes } }).select('referralCode')).map(u => u.referralCode).filter(c => c);
+        const l3 = await User.countDocuments({ referredBy: { $in: l2Codes } });
+        await User.findByIdAndUpdate(referrer._id, { $set: { 'teamStats.l1': l1, 'teamStats.l2': l2, 'teamStats.l3': l3, 'teamStats.total': l1 + l2 + l3 } });
       }
     }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const newReferralCode = ('BOOST' + Date.now().toString().slice(-4) + Math.floor(10 + Math.random() * 90)).toUpperCase();
-
-    const newUser = new User({ 
-      email: cleanEmail, 
-      password: hashedPassword, 
-      referralCode: newReferralCode,
-      referredBy: validReferralCode, 
-      wallet: { balance: 0, depositBalance: 0, profitBalance: 0, totalDeposits: 0, totalWithdrawn: 0 }
-    });
-    
-    await newUser.save();
-    res.status(201).json({ success: true, message: 'تم إنشاء الحساب بنجاح' });
-  } catch (err) {
-    res.status(400).json({ error: 'فشل في إنشاء الحساب' });
-  }
+    res.status(201).json({ success: true, message: 'تم إنشاء الحساب' });
+  } catch (err) { res.status(500).json({ error: 'فشل التسجيل' }); }
 });
 
-// 🔑 تسجيل الدخول
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({ error: 'يرجى إدخال البريد وكلمة المرور' });
-    }
-
+    if (!email || !password) return res.status(400).json({ error: 'يرجى إدخال البريد وكلمة المرور' });
     const cleanEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      return res.status(400).json({ error: 'بيانات الدخول غير صحيحة' });
-    }
-
-    if (user.isBanned) {
-      return res.status(403).json({ error: 'حسابك معطل حالياً من قبل الإدارة. يرجى التواصل مع الدعم.' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'بيانات الدخول غير صحيحة' });
-    }
-
-    // مزامنة صحة الحقول المالية القديمة والجديدة
+    if (!user || !(await bcrypt.compare(password, user.password))) return res.status(400).json({ error: 'بيانات غير صحيحة' });
+    if (user.isBanned) return res.status(403).json({ error: 'الحساب معطل' });
     if (user.wallet.depositBalance === undefined) user.wallet.depositBalance = 0;
     if (user.wallet.profitBalance === undefined) user.wallet.profitBalance = user.wallet.balance || 0;
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     await user.save();
-
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    
-    const safeUser = {
-      _id: user._id,
-      email: user.email,
-      role: user.role,
-      tierCode: user.tierCode,
-      assetWallet: user.assetWallet,
-      todayCompletedTasks: user.todayCompletedTasks,
-      referralCode: user.referralCode,
-      referredBy: user.referredBy,
-      walletAddress: user.walletAddress,
-      isBanned: user.isBanned,
-      wallet: user.wallet
-    };
-
+    const safeUser = { _id: user._id, email: user.email, role: user.role, tierCode: user.tierCode, assetWallet: user.assetWallet, todayCompletedTasks: user.todayCompletedTasks, referralCode: user.referralCode, referredBy: user.referredBy, walletAddress: user.walletAddress, isBanned: user.isBanned, wallet: user.wallet, teamStats: user.teamStats || { l1: 0, l2: 0, l3: 0, total: 0 } };
     res.status(200).json({ success: true, token, user: safeUser });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في تسجيل الدخول' });
-  }
+  } catch (err) { res.status(500).json({ error: 'خطأ في تسجيل الدخول' }); }
 });
 
-// 📩 طلب رمز استعادة كلمة المرور
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    if (!resend) return res.status(500).json({ error: 'خدمة البريد الإلكتروني غير مهيأة' });
-
+    if (!resend) return res.status(500).json({ error: 'البريد غير مهيأ' });
     const { email } = req.body;
-    if (!email || typeof email !== 'string') return res.status(400).json({ error: 'يرجى إدخال البريد الإلكتروني' });
-
-    const cleanEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      return res.status(200).json({ success: true, message: 'إذا كان البريد مسجلاً، فستصلك تعليمات استعادة كلمة المرور' });
-    }
-
+    if (!email) return res.status(400).json({ error: 'يرجى إدخال البريد' });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user) return res.status(200).json({ success: true, message: 'إذا كان البريد مسجلاً ستصل الرسالة' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.resetOTP = otp;
-    user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
+    user.resetOTP = otp; user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
-
     await resend.emails.send({
       from: 'BOOST Platform <onboarding@resend.dev>',
       to: user.email,
       subject: 'رمز استعادة كلمة المرور - BOOST',
-      html: `
-        <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; text-align: center; background-color: #0f172a; color: #ffffff; border-radius: 10px;">
-          <h2 style="color: #38bdf8; margin-bottom: 20px;">منصة BOOST</h2>
-          <p style="font-size: 16px;">أهلاً بك، رمز التحقق الخاص بك لإعادة تعيين كلمة المرور هو:</p>
-          <div style="background-color: #1e293b; padding: 15px 25px; border-radius: 8px; display: inline-block; margin: 15px 0;">
-            <h1 style="color: #fbbf24; font-size: 36px; letter-spacing: 6px; margin: 0;">${otp}</h1>
-          </div>
-          <p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">هذا الرمز صالِح لمدة 10 دقائق فقط.</p>
-        </div>
-      `
+      html: `<div style="direction:rtl;padding:20px;background:#0f172a;color:#fff;"><h2 style="color:#38bdf8;">رمز التحقق</h2><div style="background:#1e293b;padding:15px 25px;margin:15px 0;"><h1 style="color:#fbbf24;font-size:36px;">${otp}</h1></div><p style="color:#94a3b8;">صالح لمدة 10 دقائق</p></div>`
     });
-
-    res.status(200).json({ success: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' });
-  } catch (err) {
-    res.status(500).json({ error: 'فشل إرسال البريد الإلكتروني' });
-  }
+    res.status(200).json({ success: true, message: 'تم الإرسال' });
+  } catch (err) { res.status(500).json({ error: 'فشل الإرسال' }); }
 });
 
-// 🔍 التحقق من صحة الرمز
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp || typeof email !== 'string' || typeof otp !== 'string') {
-      return res.status(400).json({ error: 'بيانات غير صالحة' });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-
-    const user = await User.findOne({
-      email: cleanEmail,
-      resetOTP: otp,
-      resetOTPExpire: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ error: 'رمز التحقق غير صحيح أو انتهت صلاحيته' });
-    }
-
-    res.status(200).json({ success: true, message: 'رمز التحقق صحيح' });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    if (!email || !otp) return res.status(400).json({ error: 'بيانات غير صالحة' });
+    const user = await User.findOne({ email: email.trim().toLowerCase(), resetOTP: otp, resetOTPExpire: { $gt: Date.now() } });
+    if (!user) return res.status(400).json({ error: 'رمز غير صحيح أو منتهي' });
+    res.status(200).json({ success: true, message: 'رمز صحيح' });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🔄 إعادة تعيين كلمة المرور
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-    if (!email || !otp || !newPassword || typeof newPassword !== 'string') {
-      return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
-    }
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 8 أحرف' });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-
-    const user = await User.findOne({
-      email: cleanEmail,
-      resetOTP: otp,
-      resetOTPExpire: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ error: 'جلسة التغيير غير صالحة أو انتهت الصلاحية' });
-    }
-
+    if (!email || !otp || !newPassword || newPassword.length < 8) return res.status(400).json({ error: 'بيانات غير صالحة' });
+    const user = await User.findOne({ email: email.trim().toLowerCase(), resetOTP: otp, resetOTPExpire: { $gt: Date.now() } });
+    if (!user) return res.status(400).json({ error: 'جلسة غير صالحة' });
     user.password = await bcrypt.hash(newPassword, 12);
-    user.resetOTP = null;
-    user.resetOTPExpire = null;
+    user.resetOTP = null; user.resetOTPExpire = null;
     await user.save();
-
-    res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.status(200).json({ success: true, message: 'تم التغيير' });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 👤 البروفايل
 app.get('/api/user/profile', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password -resetOTP -twoFactorCode');
     res.status(200).json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// ✅ إكمال المهام وتحديث الأرباح (محمية ضد Race Conditions)
+// ===== إكمال المهام =====
 app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const user = await User.findById(req.user.id).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
-
+    if (!user) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'مستخدم غير موجود' }); }
     const vipLevel = await VipLevel.findOne({ code: user.tierCode }).session(session);
     const maxTasks = vipLevel ? vipLevel.tasks : 33;
     const dailyProfit = vipLevel ? vipLevel.dailyProfit : 2.50;
     const commission = parseFloat((dailyProfit / maxTasks).toFixed(4));
-
-    const updatedUser = await User.findOneAndUpdate(
+    const updated = await User.findOneAndUpdate(
       { _id: req.user.id, todayCompletedTasks: { $lt: maxTasks } },
-      {
-        $inc: {
-          assetWallet: commission,
-          'wallet.profitBalance': commission,
-          'wallet.balance': commission,
-          todayCompletedTasks: 1
-        }
-      },
+      { $inc: { assetWallet: commission, 'wallet.profitBalance': commission, 'wallet.balance': commission, todayCompletedTasks: 1 } },
       { new: true, session }
     ).select('-password -resetOTP -twoFactorCode');
-
-    if (!updatedUser) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'لقد أتممت جميع مهام اليوم' });
-    }
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(200).json({ 
-      success: true, 
-      assetWallet: updatedUser.assetWallet, 
-      wallet: updatedUser.wallet, 
-      completed: updatedUser.todayCompletedTasks 
-    });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    if (!updated) { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'أتممت جميع المهام' }); }
+    await session.commitTransaction(); session.endSession();
+    res.status(200).json({ success: true, assetWallet: updated.assetWallet, wallet: updated.wallet, completed: updated.todayCompletedTasks });
+  } catch (err) { await session.abortTransaction(); session.endSession(); res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 💳 الإيداع
+// ===== الإيداع =====
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount, txHash, receipt } = req.body;
     const depositNum = Number(amount);
-    if (!depositNum || depositNum <= 0) {
-      return res.status(400).json({ success: false, error: 'مبلغ الإيداع غير صالح' });
-    }
-
-    const pendingDeposit = await Transaction.findOne({
-      userId: req.user.id,
-      type: 'deposit',
-      status: 'pending'
-    });
-
-    if (pendingDeposit) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'لديك طلب إيداع قيد الانتظار بالفعل. يرجى الانتظار حتى يتم معالجته قبل تقديم طلب جديد.' 
-      });
-    }
-
-    const safeTxHash = receipt || ((txHash && typeof txHash === 'string') ? txHash.trim() : 'Manual Deposit Request');
-
-    const depositTransaction = new Transaction({
-      userId: req.user.id,
-      type: 'deposit',
-      amount: depositNum,
-      walletAddress: safeTxHash,
-      status: 'pending'
-    });
-    await depositTransaction.save();
-
-    res.status(201).json({ 
-      success: true, 
-      message: 'تم تقديم طلب الإيداع بنجاح وهو قيد المراجعة والتأكيد', 
-      deposit: depositTransaction,
-      transaction: depositTransaction 
-    });
-  } catch (err) {
-    console.error('Error processing deposit:', err);
-    res.status(500).json({ success: false, error: 'حدث خطأ في السيرفر أثناء تقديم الطلب' });
-  }
+    if (!depositNum || depositNum <= 0) return res.status(400).json({ success: false, error: 'مبلغ غير صالح' });
+    const pending = await Transaction.findOne({ userId: req.user.id, type: 'deposit', status: 'pending' });
+    if (pending) return res.status(400).json({ success: false, error: 'لديك طلب قيد الانتظار' });
+    const safeTx = receipt || (txHash && typeof txHash === 'string' ? txHash.trim() : 'Manual Deposit');
+    const tx = new Transaction({ userId: req.user.id, type: 'deposit', amount: depositNum, walletAddress: safeTx, status: 'pending' });
+    await tx.save();
+    res.status(201).json({ success: true, message: 'تم تقديم الطلب', transaction: tx });
+  } catch (err) { res.status(500).json({ success: false, error: 'خطأ في السيرفر' }); }
 });
 
-// 📜 جلب سجل المعاملات المالية للمستخدم الحالي
+// ===== سجل المعاملات =====
 app.get('/api/transactions/my-history', verifyToken, async (req, res) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user.id })
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      transactions
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const transactions = await Transaction.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, transactions });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🎡 عجلة الحظ
+// ===== عجلة الحظ =====
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const min = gameSettings.spinMin || 1;
-    const max = gameSettings.spinMax || 10;
-    const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { 
-        $inc: { 
-          'wallet.profitBalance': rewardAmount,
-          'wallet.balance': rewardAmount 
-        } 
-      },
-      { new: true, session }
-    );
-
-    if (!updatedUser) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
-
-    const rewardTransaction = new Transaction({
-      userId: updatedUser._id,
-      type: 'reward',
-      amount: rewardAmount,
-      walletAddress: 'Lucky Spin Wheel',
-      status: 'approved'
-    });
-    await rewardTransaction.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(200).json({ success: true, reward: rewardAmount, wallet: updatedUser.wallet });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const min = gameSettings.spinMin || 1, max = gameSettings.spinMax || 10;
+    const reward = parseFloat((Math.random() * (max - min) + min).toFixed(2));
+    const updated = await User.findByIdAndUpdate(req.user.id, { $inc: { 'wallet.profitBalance': reward, 'wallet.balance': reward } }, { new: true, session });
+    if (!updated) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'مستخدم غير موجود' }); }
+    await new Transaction({ userId: updated._id, type: 'reward', amount: reward, walletAddress: 'Lucky Spin', status: 'approved' }).save({ session });
+    await session.commitTransaction(); session.endSession();
+    res.status(200).json({ success: true, reward, wallet: updated.wallet });
+  } catch (err) { await session.abortTransaction(); session.endSession(); res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🎁 الصندوق الغامض
+// ===== الصندوق الغامض =====
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const min = gameSettings.boxMin || 5;
-    const max = gameSettings.boxMax || 25;
-    const rewardAmount = parseFloat((Math.random() * (max - min) + min).toFixed(2));
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { 
-        $inc: { 
-          'wallet.profitBalance': rewardAmount,
-          'wallet.balance': rewardAmount 
-        } 
-      },
-      { new: true, session }
-    );
-
-    if (!updatedUser) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
-
-    const rewardTransaction = new Transaction({
-      userId: updatedUser._id,
-      type: 'reward',
-      amount: rewardAmount,
-      walletAddress: 'Mystery Box',
-      status: 'approved'
-    });
-    await rewardTransaction.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(200).json({ success: true, reward: rewardAmount, wallet: updatedUser.wallet });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const min = gameSettings.boxMin || 5, max = gameSettings.boxMax || 25;
+    const reward = parseFloat((Math.random() * (max - min) + min).toFixed(2));
+    const updated = await User.findByIdAndUpdate(req.user.id, { $inc: { 'wallet.profitBalance': reward, 'wallet.balance': reward } }, { new: true, session });
+    if (!updated) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'مستخدم غير موجود' }); }
+    await new Transaction({ userId: updated._id, type: 'reward', amount: reward, walletAddress: 'Mystery Box', status: 'approved' }).save({ session });
+    await session.commitTransaction(); session.endSession();
+    res.status(200).json({ success: true, reward, wallet: updated.wallet });
+  } catch (err) { await session.abortTransaction(); session.endSession(); res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 💸 طلب السحب (معدّل للتحقق والخصم من رصيد الأرباح فقط)
+// ===== السحب =====
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const { amount, walletAddress, twoFactorCode } = req.body;
     const withdrawNum = Number(amount);
-
-    if (!withdrawNum || withdrawNum < 20) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'الحد الأدنى للسحب هو 20$ USDT' });
-    }
-
-    if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.trim() === '') {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'يرجى إدخال عنوان المحفظة' });
-    }
-
+    if (!withdrawNum || withdrawNum < 20) { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'الحد الأدنى 20$' }); }
+    if (!walletAddress || walletAddress.trim() === '') { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'عنوان المحفظة مطلوب' }); }
     const user = await User.findById(req.user.id).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
-    }
-
+    if (!user) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'مستخدم غير موجود' }); }
     if (!twoFactorCode || user.twoFactorCode !== twoFactorCode || !user.twoFactorExpire || user.twoFactorExpire < Date.now()) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'رمز التحقق الثنائي (2FA) غير صحيح أو انتهت صلاحيته' });
+      await session.abortTransaction(); session.endSession();
+      return res.status(400).json({ error: 'رمز 2FA غير صحيح أو منتهي' });
     }
-
     const vipLevel = await VipLevel.findOne({ code: user.tierCode }).session(session);
     const maxLimit = vipLevel ? (vipLevel.price * 0.3) : 15;
-
-    if (withdrawNum > maxLimit) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
-    }
-
-    // ⭐ التحقق الحازم: الخصم التام والتحقق يكون من رصيد الأرباح فقط
+    if (withdrawNum > maxLimit) { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: `الحد الأقصى ${maxLimit}$` }); }
     if (user.wallet.profitBalance < withdrawNum) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: `رصيد الأرباح القابل للسحب غير كافٍ. المتاح للسحب لديك هو: ${user.wallet.profitBalance}$ (رصيد الإيداع لا يمكن السحب منه).` });
+      await session.abortTransaction(); session.endSession();
+      return res.status(400).json({ error: `رصيد الأرباح غير كافٍ. المتاح: ${user.wallet.profitBalance}$` });
     }
-
-    // الخصم حصرياً من رصيد الأرباح
     user.wallet.profitBalance -= withdrawNum;
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     user.wallet.totalWithdrawn += withdrawNum;
-    user.twoFactorCode = null;
-    user.twoFactorExpire = null;
+    user.twoFactorCode = null; user.twoFactorExpire = null;
     await user.save({ session });
-
-    const withdrawal = new Transaction({
-      userId: user._id,
-      type: 'withdraw',
-      amount: withdrawNum,
-      walletAddress: walletAddress.trim(),
-      status: 'pending'
-    });
+    const withdrawal = new Transaction({ userId: user._id, type: 'withdraw', amount: withdrawNum, walletAddress: walletAddress.trim(), status: 'pending' });
     await withdrawal.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
+    await session.commitTransaction(); session.endSession();
     if (resend) {
       try {
-        const formattedDate = new Date().toLocaleString('ar-EG', { timeZone: 'UTC' });
         await resend.emails.send({
           from: 'BOOST Platform <onboarding@resend.dev>',
           to: user.email,
-          subject: '⚠️ تم تقديم طلب سحب جديد - منصة BOOST',
-          html: `
-            <div style="direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px; background-color: #0b1329; color: #ffffff; border-radius: 12px; max-width: 600px; margin: auto; border: 1px solid #1e293b;">
-              <div style="text-align: center; border-bottom: 2px solid #38bdf8; padding-bottom: 15px; margin-bottom: 20px;">
-                <h1 style="color: #38bdf8; margin: 0; font-size: 24px;">منصة BOOST</h1>
-                <p style="color: #94a3b8; font-size: 14px; margin-top: 5px;">إشعار استلام طلب السحب</p>
-              </div>
-
-              <p style="font-size: 16px; color: #e2e8f0;">مرحباً <strong>${user.email.split('@')[0]}</strong>،</p>
-              <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">تم استلام طلب السحب الخاص بك بنجاح، وهو حالياً قيد المراجعة والمعالجة من قبل الفريق المالي.</p>
-
-              <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; margin: 20px 0; border-right: 4px solid #f59e0b;">
-                <h3 style="color: #fbbf24; margin-top: 0; margin-bottom: 15px; font-size: 18px;">تفاصيل الطلب:</h3>
-                
-                <table style="width: 100%; border-collapse: collapse; text-align: right; color: #f8fafc; font-size: 14px;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #94a3b8;">المبلغ المطلوب:</td>
-                    <td style="padding: 8px 0; font-weight: bold; color: #34d399; font-size: 16px;">$${withdrawNum} USDT</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #94a3b8;">معرف المعاملة (TxID):</td>
-                    <td style="padding: 8px 0; font-family: monospace; color: #38bdf8;">#${withdrawal._id}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #94a3b8;">عنوان المحفظة:</td>
-                    <td style="padding: 8px 0; font-family: monospace; word-break: break-all; color: #f1f5f9;">${walletAddress.trim()}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #94a3b8;">الحالة الحالية:</td>
-                    <td style="padding: 8px 0;"><span style="background-color: #b45309; color: #fff; padding: 3px 8px; border-radius: 5px; font-size: 12px;">قيد المراجعة</span></td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #94a3b8;">تاريخ الطلب:</td>
-                    <td style="padding: 8px 0; color: #cbd5e1;">${formattedDate}</td>
-                  </tr>
-                </table>
-              </div>
-
-              <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">
-                * سيتم تحويل المبالغ وإرسال تأكيد فور الموافقة على العملية.
-              </p>
-
-              <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid #334155; font-size: 12px; color: #64748b;">
-                جميع الحقوق محفوظة © منصة BOOST 2026
-              </div>
-            </div>
-          `
+          subject: '⚠️ طلب سحب جديد - BOOST',
+          html: `<div style="direction:rtl;padding:20px;background:#0b1329;color:#fff;"><h2 style="color:#fbbf24;">تم استلام طلب السحب</h2><p>المبلغ: $${withdrawNum} USDT</p><p>العنوان: ${walletAddress.trim()}</p><p style="color:#94a3b8;">قيد المراجعة</p></div>`
         });
-      } catch (emailErr) {
-        console.error('⚠️ فشل إرسال إشعار السحب عبر البريد:', emailErr.message);
-      }
+      } catch (e) { console.warn('فشل إرسال البريد:', e.message); }
     }
-
-    res.status(200).json({ success: true, message: 'تم تقديم طلب السحب بنجاح وإرسال التفاصيل لبريدك الإلكتروني', wallet: user.wallet });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.status(200).json({ success: true, message: 'تم تقديم الطلب', wallet: user.wallet });
+  } catch (err) { await session.abortTransaction(); session.endSession(); res.status(500).json({ error: 'خطأ' }); }
 });
 
-// ==================== 5. مسارات الإدارة (Admin APIs) ====================
+// ============================================================
+// ===== 3. مسارات الإدارة (Admin APIs) =====
+// ============================================================
 
-// 🔐 صفحة لوحة التحكم الأدمين
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
+app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 
-// 💎 إضافة أو تعديل مستوى VIP من الأدمن
 app.post('/api/admin/vip-levels', verifyAdmin, async (req, res) => {
   try {
-    const { code, name, price, tasks, dailyProfit, monthlyProfit, yearlyProfit, badgeColor } = req.body;
-
-    if (!code || !name || price === undefined || !tasks || dailyProfit === undefined) {
-      return res.status(400).json({ error: 'يرجى إدخال جميع البيانات الأساسية للمستوى' });
-    }
-
-    const levelData = {
-      code: code.trim().toUpperCase(),
-      name,
-      price: Number(price),
-      tasks: Number(tasks),
-      dailyProfit: Number(dailyProfit),
-      monthlyProfit: monthlyProfit ? Number(monthlyProfit) : (Number(dailyProfit) * 30),
+    const { code, name, price, tasks, dailyProfit, monthlyProfit, yearlyProfit, badgeColor, durationDays, commissionRate } = req.body;
+    if (!code || !name || price === undefined || !tasks || dailyProfit === undefined) return res.status(400).json({ error: 'بيانات ناقصة' });
+    const data = {
+      code: code.trim().toUpperCase(), name, price: Number(price), tasks: Number(tasks),
+      dailyProfit: Number(dailyProfit), monthlyProfit: monthlyProfit ? Number(monthlyProfit) : (Number(dailyProfit) * 30),
       yearlyProfit: yearlyProfit ? Number(yearlyProfit) : (Number(dailyProfit) * 365),
-      badgeColor: badgeColor || 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400'
+      badgeColor: badgeColor || 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400',
+      durationDays: durationDays ? Number(durationDays) : 365,
+      commissionRate: commissionRate !== undefined ? Number(commissionRate) : 0
     };
-
-    const updatedLevel = await VipLevel.findOneAndUpdate(
-      { code: levelData.code },
-      levelData,
-      { upsert: true, new: true }
-    );
-
-    res.json({ success: true, message: 'تم حفظ المستوى بنجاح', level: updatedLevel });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const updated = await VipLevel.findOneAndUpdate({ code: data.code }, data, { upsert: true, new: true });
+    res.json({ success: true, message: 'تم الحفظ', level: updated });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🗑️ حذف مستوى VIP من الأدمن
 app.delete('/api/admin/vip-levels/:code', verifyAdmin, async (req, res) => {
   try {
-    const { code } = req.params;
-    const deleted = await VipLevel.findOneAndDelete({ code: code.toUpperCase() });
-    if (!deleted) {
-      return res.status(404).json({ error: 'المستوى غير موجود' });
-    }
-    res.json({ success: true, message: 'تم حذف المستوى بنجاح' });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const deleted = await VipLevel.findOneAndDelete({ code: req.params.code.toUpperCase() });
+    if (!deleted) return res.status(404).json({ error: 'غير موجود' });
+    res.json({ success: true, message: 'تم الحذف' });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 📊 الإحصائيات العامة
 app.get('/api/admin/overview', verifyAdmin, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const pendingWithdrawals = await Transaction.countDocuments({ type: 'withdraw', status: 'pending' });
-    
-    const depositsResult = await Transaction.aggregate([
-      { $match: { type: 'deposit', status: 'approved' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    const withdrawalsResult = await Transaction.aggregate([
-      { $match: { type: 'withdraw', status: 'approved' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    res.json({
-      success: true,
-      stats: {
-        totalUsers,
-        totalDeposits: depositsResult[0]?.total || 0,
-        totalWithdrawals: withdrawalsResult[0]?.total || 0,
-        pendingWithdrawals
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const depositsResult = await Transaction.aggregate([{ $match: { type: 'deposit', status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
+    const withdrawalsResult = await Transaction.aggregate([{ $match: { type: 'withdraw', status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
+    res.json({ success: true, stats: { totalUsers, totalDeposits: depositsResult[0]?.total || 0, totalWithdrawals: withdrawalsResult[0]?.total || 0, pendingWithdrawals } });
+  } catch (err) { res.status(500).json({ success: false, error: 'خطأ' }); }
 });
 
-// 👥 قائمة المستخدمين
 app.get('/api/admin/users', verifyAdmin, async (req, res) => {
   try {
-    const users = await User.find().select('-password -resetOTP -twoFactorCode').sort({ createdAt: -1 });
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const search = req.query.search || '';
+    let filter = {};
+    if (search) filter.email = { $regex: search, $options: 'i' };
+    const users = await User.find(filter).select('-password -resetOTP -twoFactorCode').sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const total = await User.countDocuments(filter);
+    res.json({ users, page, totalPages: Math.ceil(total / limit), total });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🔄 مسار إعادة تعيين المهام اليومية
 app.post('/api/admin/reset-daily-tasks', verifyAdmin, async (req, res) => {
-  try {
-    await User.updateMany({}, { $set: { todayCompletedTasks: 0 } });
-    res.json({ success: true, message: 'تم إعادة تعيين المهام اليومية لجميع المستخدمين بنجاح' });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+  try { await User.updateMany({}, { $set: { todayCompletedTasks: 0 } }); res.json({ success: true, message: 'تم إعادة التعيين' }); } 
+  catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🚫 حظر أو إلغاء حظر مستخدم
 app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
   try {
     const { userId, isBanned } = req.body;
     const user = await User.findByIdAndUpdate(userId, { isBanned }, { new: true }).select('-password -resetOTP -twoFactorCode');
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    res.json({
-      success: true,
-      message: isBanned ? 'تم حظر المستخدم بنجاح' : 'تم إلغاء حظر المستخدم بنجاح',
-      user
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    if (!user) return res.status(404).json({ error: 'مستخدم غير موجود' });
+    res.json({ success: true, message: isBanned ? 'تم الحظر' : 'تم إلغاء الحظر', user });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// ✏️ تعديل بيانات مستخدم من الإدارة
 app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   try {
-    const { userId, depositBalance, profitBalance, tierCode, walletAddress } = req.body;
+    const { userId, depositBalance, profitBalance, tierCode, walletAddress, password } = req.body;
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
+    if (!user) return res.status(404).json({ error: 'مستخدم غير موجود' });
     if (depositBalance !== undefined) user.wallet.depositBalance = Number(depositBalance);
     if (profitBalance !== undefined) user.wallet.profitBalance = Number(profitBalance);
-
     user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     if (tierCode) user.tierCode = tierCode;
     if (walletAddress !== undefined) user.walletAddress = String(walletAddress).trim();
-
+    if (password && password.trim() !== '') user.password = await bcrypt.hash(password, 12);
     await user.save();
-    
-    const safeUser = user.toObject();
-    delete safeUser.password;
-    delete safeUser.resetOTP;
-    delete safeUser.twoFactorCode;
-
-    res.json({ success: true, message: 'تم تعديل بيانات المستخدم بنجاح', user: safeUser });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const safe = user.toObject(); delete safe.password; delete safe.resetOTP; delete safe.twoFactorCode;
+    res.json({ success: true, message: 'تم التحديث', user: safe });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 💸 جلب طلبات السحب والإيداع المعلقة
 app.get('/api/admin/withdrawals', verifyAdmin, async (req, res) => {
   try {
-    const withdrawals = await Transaction.find({ type: { $in: ['withdraw', 'deposit'] } })
-      .populate('userId', 'email tierCode')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, withdrawals });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const status = req.query.status || 'all';
+    const type = req.query.type || 'all';
+    let filter = {};
+    if (status !== 'all') filter.status = status;
+    if (type !== 'all') filter.type = type;
+    const transactions = await Transaction.find(filter).populate('userId', 'email tierCode').sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const total = await Transaction.countDocuments(filter);
+    res.json({ success: true, withdrawals: transactions, page, totalPages: Math.ceil(total / limit), total });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// ⚙️ الموافقة أو رفض طلب بـ ACID Transactions
 app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const { transactionId, action } = req.body;
     const tx = await Transaction.findById(transactionId).populate('userId').session(session);
-    if (!tx) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'المعاملة غير موجودة' });
-    }
-
-    if (tx.status !== 'pending') {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'تمت معالجة هذه المعاملة سابقاً' });
-    }
-
+    if (!tx) { await session.abortTransaction(); session.endSession(); return res.status(404).json({ error: 'غير موجود' }); }
+    if (tx.status !== 'pending') { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'تمت معالجته سابقاً' }); }
     const user = tx.userId;
-
     if (action === 'approve') {
       tx.status = 'approved';
       if (tx.type === 'deposit') {
-        // تحويل مبلغ الإيداع تلقائياً لرصيد الإيداع حصراً
-        await User.findByIdAndUpdate(user._id, {
-          $inc: { 
-            'wallet.depositBalance': tx.amount,
-            'wallet.balance': tx.amount, 
-            'wallet.totalDeposits': tx.amount 
-          }
-        }, { session });
+        await User.findByIdAndUpdate(user._id, { $inc: { 'wallet.depositBalance': tx.amount, 'wallet.balance': tx.amount, 'wallet.totalDeposits': tx.amount } }, { session });
       }
-
-      if (tx.type === 'withdraw' && user && user.email && resend) {
+      if (tx.type === 'withdraw' && user?.email && resend) {
         try {
-          const completedDate = new Date().toLocaleString('ar-EG', { timeZone: 'UTC' });
           await resend.emails.send({
             from: 'BOOST Platform <onboarding@resend.dev>',
             to: user.email,
-            subject: '✅ تم إتمام عملية السحب بنجاح - منصة BOOST',
-            html: `
-              <div style="direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px; background-color: #0b1329; color: #ffffff; border-radius: 12px; max-width: 600px; margin: auto; border: 1px solid #10b981;">
-                <div style="text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 20px;">
-                  <h1 style="color: #10b981; margin: 0; font-size: 24px;">منصة BOOST</h1>
-                  <p style="color: #94a3b8; font-size: 14px; margin-top: 5px;">تأكيد تحويل واستلام الأرباح</p>
-                </div>
-
-                <p style="font-size: 16px; color: #e2e8f0;">مرحباً <strong>${user.email.split('@')[0]}</strong>،</p>
-                <p style="font-size: 15px; color: #cbd5e1; line-height: 1.6;">يسعدنا إبلاغك بأنه تم قبول طلب السحب الخاص بك وتحويل المبلغ بنجاح إلى محفظتك الإلكترونية!</p>
-
-                <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; margin: 20px 0; border-right: 4px solid #10b981;">
-                  <h3 style="color: #34d399; margin-top: 0; margin-bottom: 15px; font-size: 18px;">تفاصيل المعاملة المكتملة:</h3>
-                  
-                  <table style="width: 100%; border-collapse: collapse; text-align: right; color: #f8fafc; font-size: 14px;">
-                    <tr>
-                      <td style="padding: 8px 0; color: #94a3b8;">المبلغ المحول:</td>
-                      <td style="padding: 8px 0; font-weight: bold; color: #10b981; font-size: 18px;">$${tx.amount} USDT</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #94a3b8;">معرف المعاملة (TxID):</td>
-                      <td style="padding: 8px 0; font-family: monospace; color: #38bdf8;">#${tx._id}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #94a3b8;">إلى المحفظة:</td>
-                      <td style="padding: 8px 0; font-family: monospace; word-break: break-all; color: #f1f5f9;">${tx.walletAddress}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #94a3b8;">حالة العملية:</td>
-                      <td style="padding: 8px 0;"><span style="background-color: #065f46; color: #34d399; padding: 4px 10px; border-radius: 5px; font-size: 13px; font-weight: bold;">مكتملة بنجاح ✅</span></td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #94a3b8;">تاريخ التجهيز:</td>
-                      <td style="padding: 8px 0; color: #cbd5e1;">${completedDate}</td>
-                    </tr>
-                  </table>
-                </div>
-
-                <p style="font-size: 14px; color: #cbd5e1; text-align: center; margin-top: 20px;">
-                  شكراً لثقتك واستخدامك منصة <strong>BOOST</strong>. ونتمنى لك المزيد من الأرباح والنجاح!
-                </p>
-
-                <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid #334155; font-size: 12px; color: #64748b;">
-                  جميع الحقوق محفوظة © منصة BOOST 2026
-                </div>
-              </div>
-            `
+            subject: '✅ تم إتمام السحب - BOOST',
+            html: `<div style="direction:rtl;padding:20px;background:#0b1329;color:#fff;"><h2 style="color:#10b981;">تم إتمام السحب</h2><p>المبلغ: $${tx.amount} USDT</p><p>العنوان: ${tx.walletAddress}</p><p style="color:#94a3b8;">تم التحويل بنجاح</p></div>`
           });
-        } catch (emailErr) {
-          console.error('⚠️ فشل إرسال بريد إتمام السحب:', emailErr.message);
-        }
+        } catch (e) { console.warn('فشل البريد:', e.message); }
       }
-
     } else if (action === 'reject') {
       tx.status = 'rejected';
       if (tx.type === 'withdraw') {
-        // إرجاع المبلغ لـ profitBalance في حال الرفض
-        await User.findByIdAndUpdate(user._id, {
-          $inc: { 
-            'wallet.profitBalance': tx.amount, 
-            'wallet.balance': tx.amount,
-            'wallet.totalWithdrawn': -tx.amount 
-          }
-        }, { session });
+        await User.findByIdAndUpdate(user._id, { $inc: { 'wallet.profitBalance': tx.amount, 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount } }, { session });
       }
-    } else {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ error: 'الإجراء المطلوب غير صالح' });
-    }
-
+    } else { await session.abortTransaction(); session.endSession(); return res.status(400).json({ error: 'إجراء غير صالح' }); }
     await tx.save({ session });
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({ success: true, message: `تمت عملية (${action === 'approve' ? 'الموافقة' : 'الرفض'}) بنجاح` });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    await session.commitTransaction(); session.endSession();
+    res.json({ success: true, message: `تم ${action === 'approve' ? 'الموافقة' : 'الرفض'}` });
+  } catch (err) { await session.abortTransaction(); session.endSession(); res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 🎮 جلب إعدادات الألعاب
-app.get('/api/admin/settings/games', verifyAdmin, async (req, res) => {
-  res.json({ success: true, settings: gameSettings });
-});
-
-// 🎮 حفظ إعدادات الألعاب والعجلة
-app.post('/api/admin/settings/games', verifyAdmin, async (req, res) => {
+app.get('/api/admin/settings/games', verifyAdmin, (req, res) => { res.json({ success: true, settings: gameSettings }); });
+app.post('/api/admin/settings/games', verifyAdmin, (req, res) => {
   try {
     const { spinMin, spinMax, boxMin, boxMax } = req.body;
     if (spinMin !== undefined) gameSettings.spinMin = Number(spinMin);
     if (spinMax !== undefined) gameSettings.spinMax = Number(spinMax);
     if (boxMin !== undefined) gameSettings.boxMin = Number(boxMin);
     if (boxMax !== undefined) gameSettings.boxMax = Number(boxMax);
-
-    res.json({ success: true, message: 'تم حفظ إعدادات الألعاب بنجاح', settings: gameSettings });
-  } catch (err) {
-    res.status(500).json({ success: false, error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.json({ success: true, message: 'تم الحفظ', settings: gameSettings });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// 📢 مسار البث والإشعارات الفورية
 app.post('/api/admin/broadcast', verifyAdmin, async (req, res) => {
   try {
     const { title, body } = req.body;
-    if (!title || !body) {
-      return res.status(400).json({ error: 'يرجى إدخال العنوان والنص' });
-    }
-    
-    const usersWithPush = await User.find({ pushSubscription: { $ne: null } });
+    if (!title || !body) return res.status(400).json({ error: 'العنوان والنص مطلوبان' });
+    const users = await User.find({ pushSubscription: { $ne: null } });
     const payload = JSON.stringify({ title, body });
-    
-    let sentCount = 0;
-    for (const user of usersWithPush) {
-      try {
-        await webpush.sendNotification(user.pushSubscription, payload);
-        sentCount++;
-      } catch (pushErr) {
-        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-          user.pushSubscription = null;
-          await user.save();
-        }
-      }
+    let sent = 0;
+    for (const user of users) {
+      try { await webpush.sendNotification(user.pushSubscription, payload); sent++; } 
+      catch (e) { if (e.statusCode === 410 || e.statusCode === 404) { user.pushSubscription = null; await user.save(); } }
     }
-
-    res.json({ success: true, message: `تم إرسال البث والإشعارات الفورية بنجاح إلى (${sentCount}) مستخدماً` });
-  } catch (err) {
-    res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
-  }
+    res.json({ success: true, message: `تم الإرسال إلى ${sent} مستخدم` });
+  } catch (err) { res.status(500).json({ error: 'خطأ' }); }
 });
 
-// ==================== 6. تشغيل الخادم والإنهاء الآمن ====================
+// ============================================================
+// ===== 4. تشغيل الخادم =====
+// ============================================================
 
 const PORT = process.env.PORT || 5000;
-let server;
 
 mongoose.connect(MONGO_URI)
   .then(async () => {
-    console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح');
+    console.log('✅ تم الاتصال بقاعدة البيانات');
     await seedVipLevels();
-
-    server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 الخادم يعمل بنجاح على المنفذ: ${PORT}`);
-    });
+    const server = app.listen(PORT, '0.0.0.0', () => { console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`); });
   })
-  .catch(err => {
-    console.error('❌ خطأ حرج في الاتصال بقاعدة بيانات MongoDB:', err);
-    process.exit(1);
-  });
+  .catch(err => { console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err); process.exit(1); });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('⚠️ Unhandled Rejection:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('⚠️ Uncaught Exception thrown:', error);
-});
-
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received. Shutting down gracefully...');
-  if (server) {
-    server.close(() => {
-      mongoose.connection.close(false, () => {
-        process.exit(0);
-      });
-    });
-  } else {
-    process.exit(0);
-  }
-});
+process.on('unhandledRejection', (reason) => { console.error('⚠️ Unhandled Rejection:', reason); });
+process.on('uncaughtException', (error) => { console.error('⚠️ Uncaught Exception:', error); });
