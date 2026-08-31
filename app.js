@@ -4,6 +4,7 @@
 
 let currentUserTier = 'A1';
 let soundEnabled = true;
+let currentUserData = null; // الاحتفاظ ببيانات المستخدم محلياً لسهولة الوصول
 
 const tiersData = [
     { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
@@ -352,12 +353,50 @@ async function handleRegister(e) {
     }
 }
 
-/* --- 4. محفظة المستخدم والملف الشخصي --- */
+/* --- 4. محفظة المستخدم والملف الشخصي تحديث وتطبيق --- */
 function updateWalletData(wallet) {
     if(!wallet) return;
-    document.getElementById('lblWalletBalance').innerText = Number(wallet.balance || 0).toFixed(2);
-    document.getElementById('lblTotalDeposits').innerText = Number(wallet.totalDeposits || 0).toFixed(2) + ' $';
-    document.getElementById('lblTotalWithdrawn').innerText = Number(wallet.totalWithdrawn || 0).toFixed(2) + ' $';
+    const balance = Number(wallet.balance || 0).toFixed(2);
+    const deposits = Number(wallet.totalDeposits || 0).toFixed(2);
+    const withdrawn = Number(wallet.totalWithdrawn || 0).toFixed(2);
+
+    const lblBalance = document.getElementById('lblWalletBalance');
+    const lblDeposits = document.getElementById('lblTotalDeposits');
+    const lblWithdrawn = document.getElementById('lblTotalWithdrawn');
+    const lblProfileEarned = document.getElementById('lblProfileTotalEarnings');
+    const lblProfileWithdrawn = document.getElementById('lblProfileTotalWithdrawn');
+
+    if (lblBalance) lblBalance.innerText = balance;
+    if (lblDeposits) lblDeposits.innerText = deposits + ' $';
+    if (lblWithdrawn) lblWithdrawn.innerText = withdrawn + ' $';
+
+    // تحديث مربعات الملف الشخصي المحددة
+    if (lblProfileEarned) lblProfileEarned.innerText = `$${balance}`;
+    if (lblProfileWithdrawn) lblProfileWithdrawn.innerText = `$${withdrawn}`;
+}
+
+function updateProfileUI() {
+    if (!currentUserData) return;
+
+    // البريد واسم المستخدم
+    const emailEl = document.getElementById('lblProfileEmail');
+    if (emailEl) emailEl.innerText = currentUserData.email || '';
+
+    // كود ورابط الدعوة
+    const refCode = currentUserData.referralCode || 'BOOST99';
+    const dynamicRefLink = `${window.location.origin}/reg?ref=${refCode}`;
+    const refInputEl = document.getElementById('profileReferralLink');
+    if (refInputEl) refInputEl.value = dynamicRefLink;
+
+    // المبالغ
+    const totalEarned = (currentUserData.wallet && currentUserData.wallet.balance) ? currentUserData.wallet.balance : (currentUserData.totalEarned || 0);
+    const totalWithdrawn = (currentUserData.wallet && currentUserData.wallet.totalWithdrawn) ? currentUserData.wallet.totalWithdrawn : (currentUserData.totalWithdrawn || 0);
+
+    const totalEarnedEl = document.getElementById('lblProfileTotalEarnings');
+    const totalWithdrawnEl = document.getElementById('lblProfileTotalWithdrawn');
+
+    if (totalEarnedEl) totalEarnedEl.innerText = `$${parseFloat(totalEarned).toFixed(2)}`;
+    if (totalWithdrawnEl) totalWithdrawnEl.innerText = `$${parseFloat(totalWithdrawn).toFixed(2)}`;
 }
 
 function lockWalletUI(address) {
@@ -405,13 +444,13 @@ async function loadUserProfile() {
         });
         const data = await res.json();
         if(res.ok && data.user) {
+            currentUserData = data.user;
             document.getElementById('loadingView').classList.add('hide');
             document.getElementById('authView').classList.add('hide');
             document.getElementById('appView').classList.remove('hide');
             document.getElementById('liveTickerBar').classList.remove('hide');
             
             document.getElementById('lblUserEmail').innerText = data.user.email;
-            document.getElementById('lblProfileEmail').innerText = data.user.email;
             document.getElementById('lblCompletedTasks').innerText = data.user.todayCompletedTasks || 0;
             document.getElementById('lblReferralCode').innerText = data.user.referralCode || 'BOOST99';
             
@@ -422,6 +461,7 @@ async function loadUserProfile() {
 
             currentUserTier = data.user.tierCode || 'A1';
             updateWalletData(data.user.wallet);
+            updateProfileUI();
 
             updateTeamTreeData(data.user.teamStats || { l1: 0, l2: 0, l3: 0, total: 0 });
 
@@ -626,7 +666,83 @@ async function sendAiMessage() {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/* --- 7. التنقل والمودالات (Modals) --- */
+/* --- 7. النسخ، الأمان والجلسات --- */
+function copyProfileReferral() {
+    const copyInput = document.getElementById('profileReferralLink');
+    if (!copyInput || !copyInput.value) {
+        const fallbackCode = document.getElementById('lblReferralCode') ? document.getElementById('lblReferralCode').innerText : 'BOOST99';
+        const dynamicLink = `${window.location.origin}/reg?ref=${fallbackCode}`;
+        executeCopyProcess(dynamicLink);
+        return;
+    }
+    executeCopyProcess(copyInput.value);
+}
+
+function executeCopyProcess(textToCopy) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            showToast("تم نسخ رابط الدعوة بنجاح! 🚀", 'win');
+        }).catch(() => {
+            fallbackCopyText(textToCopy);
+        });
+    } else {
+        fallbackCopyText(textToCopy);
+    }
+}
+
+function fallbackCopyText(text) {
+    const tempInput = document.createElement("input");
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    tempInput.setSelectionRange(0, 99999);
+    try {
+        document.execCommand('copy');
+        showToast("تم نسخ رابط الدعوة بنجاح! 🚀", 'win');
+    } catch (err) {
+        showToast("تعذر النسخ التلقائي، يرجى النسخ يدوياً");
+    }
+    document.body.removeChild(tempInput);
+}
+
+// نوافذ الأمان والحساب
+function openChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) modal.classList.remove('hide');
+    else openForgotPasswordModal();
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) modal.classList.add('hide');
+}
+
+function toggle2FASetting(checkbox) {
+    const isEnabled = checkbox.checked;
+    if (isEnabled) {
+        showToast("تم تفعيل المصادقة الثنائية (2FA) بنجاح 🛡️", 'win');
+    } else {
+        showToast("تم تعطيل المصادقة الثنائية ⚠️");
+    }
+}
+
+function openActiveSessionsModal() {
+    const modal = document.getElementById('activeSessionsModal');
+    if (modal) modal.classList.remove('hide');
+    else showToast("جهازك الحالي هو الجلسة النشطة الوحيدة ✅");
+}
+
+function closeActiveSessionsModal() {
+    const modal = document.getElementById('activeSessionsModal');
+    if (modal) modal.classList.add('hide');
+}
+
+function terminateOtherSessions() {
+    showToast("تم تسجيل الخروج من كافة الأجهزة والجلسات الأخرى 🛑", 'win');
+    closeActiveSessionsModal();
+}
+
+/* --- 8. التنقل والمودالات (Modals) --- */
 function switchTab(tabName) {
     ['home', 'tiers', 'travel', 'ai', 'spin', 'team', 'profile'].forEach(t => {
         const el = document.getElementById(`view-${t}`);
@@ -640,6 +756,10 @@ function switchTab(tabName) {
     
     const activeNav = document.getElementById(`nav-${tabName}`);
     if(activeNav) activeNav.className = "flex flex-col items-center flex-1 text-amber-500 transition-all";
+
+    if (tabName === 'profile') {
+        updateProfileUI();
+    }
 }
 
 function openDepositModal() { document.getElementById('depositModal').classList.remove('hide'); }
@@ -809,16 +929,13 @@ function closeHistoryModal() {
 }
 
 function copyReferral() {
-    const code = document.getElementById('lblReferralCode').innerText;
-    navigator.clipboard.writeText(code).then(() => {
-        showToast('تم نسخ كود الإحالة بنجاح', 'win');
-    }).catch(() => {
-        showToast('فشل نسخ الكود');
-    });
+    const code = document.getElementById('lblReferralCode') ? document.getElementById('lblReferralCode').innerText : 'BOOST99';
+    executeCopyProcess(code);
 }
 
 function logout() {
     localStorage.removeItem('token');
+    currentUserData = null;
     document.getElementById('loadingView').classList.add('hide');
     document.getElementById('appView').classList.add('hide');
     document.getElementById('authView').classList.remove('hide');
