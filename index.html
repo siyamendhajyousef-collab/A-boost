@@ -301,30 +301,126 @@
             </div>
         </div>
 
-        <!-- 4.7 تبويب الملف الشخصي (Profile View) -->
-        <div id="view-profile" class="space-y-4 hide">
-            <div class="glass-card p-5 rounded-3xl space-y-4">
-                <div class="text-center">
-                    <div class="w-16 h-16 gold-gradient rounded-full mx-auto flex items-center justify-center font-black text-slate-950 text-xl mb-2">User</div>
-                    <h3 id="lblProfileEmail" class="text-sm font-bold text-white">user@domain.com</h3>
+        <!-- 4.7 تبويب الملف الشخصي (Profile View - متكامل ومحدث) -->
+        <div id="view-profile" class="space-y-4 hide pb-6">
+            
+            <!-- 1. كارت هوية المستخدم والحالة -->
+            <div class="glass-card p-5 rounded-3xl space-y-3 text-center relative overflow-hidden">
+                <div class="w-16 h-16 gold-gradient rounded-full mx-auto flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-amber-500/10">
+                    <i class="fa-solid fa-user-shield"></i>
                 </div>
-
-                <div class="space-y-3 pt-2">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 mb-1">عنوان محفظة السحب (TRC20 / BEP20)</label>
-                        <input type="text" id="profileWalletAddress" placeholder="أدخل عنوان المحفظة لربطه" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none">
-                        <div id="walletStatusContainerProfile"></div>
-                    </div>
-                    <button type="button" id="btnSaveProfileWallet" onclick="saveProfileWallet()" class="w-full py-2.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تثبيت المحفظة وقفل الحماية</button>
+                <div>
+                    <h3 id="lblProfileDisplayName" class="text-base font-black text-white">User</h3>
+                    <span id="lblProfileEmail" class="text-xs text-slate-400 block dir-ltr">user@domain.com</span>
                 </div>
-
-                <div class="border-t border-slate-800 pt-3 flex justify-between items-center text-xs">
-                    <span class="text-slate-400">تفعيل الأصوات والتنبيهات</span>
-                    <input type="checkbox" checked onchange="toggleSound(this)" class="w-4 h-4 accent-amber-500">
+                <div class="flex justify-center items-center gap-2 pt-1">
+                    <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold px-3 py-1 rounded-full">
+                        <i class="fa-solid fa-ribbon mr-1"></i> مستوى A3 المعتمد
+                    </span>
+                    <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-3 py-1 rounded-full">
+                        <i class="fa-solid fa-circle-check mr-1"></i> حساب موثق (KYC)
+                    </span>
                 </div>
-
-                <button onclick="logout()" class="w-full py-3 bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold rounded-xl text-xs">تسجيل الخروج</button>
             </div>
+
+            <!-- 2. ملخص الإحصائيات السريعة -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-slate-400 block text-[10px] mb-0.5">إجمالي الأرباح المكتسبة</span>
+                    <b id="lblProfileTotalEarnings" class="text-emerald-400 font-black text-sm">$0.00</b>
+                </div>
+                <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-slate-400 block text-[10px] mb-0.5">السحوبات الناجحة</span>
+                    <b id="lblProfileTotalWithdrawn" class="text-amber-400 font-black text-sm">$0.00</b>
+                </div>
+            </div>
+
+            <!-- 3. رابط الإحالة السريع -->
+            <div class="glass-card p-4 rounded-2xl space-y-2">
+                <span class="text-xs font-bold text-slate-300 block">رابط الدعوة السريع</span>
+                <div class="flex items-center bg-slate-950 p-2 rounded-xl border border-slate-800">
+                    <input type="text" id="profileReferralLink" readonly value="https://agboost.app/reg?ref=BOOST99" class="w-full bg-transparent text-[11px] text-amber-400 outline-none px-2 dir-ltr">
+                    <button onclick="copyProfileReferral()" class="bg-amber-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs whitespace-nowrap active:scale-95 transition-all">
+                        <i class="fa-regular fa-copy"></i> نسخ
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. محفظة السحب المثبتة -->
+            <div class="glass-card p-4 rounded-2xl space-y-3">
+                <h4 class="text-xs font-bold text-white flex items-center">
+                    <i class="fa-solid fa-wallet text-amber-400 mr-2"></i> محفظة السحب المعتمدة
+                </h4>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1">عنوان المحفظة (TRC20 / BEP20)</label>
+                    <input type="text" id="profileWalletAddress" placeholder="أدخل عنوان المحفظة لربطه" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-500 dir-ltr">
+                    <div id="walletStatusContainerProfile" class="mt-2">
+                        <div class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-2 rounded-xl text-[11px] font-bold flex items-center justify-between">
+                            <span><i class="fa-solid fa-lock mr-1"></i> العنوان مفعل ومثبت بشكل دائم (قفل حماية 24 ساعة)</span>
+                            <span class="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" id="btnSaveProfileWallet" onclick="saveProfileWallet()" class="w-full py-2.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs active:scale-95 transition-all">تثبيت المحفظة وقفل الحماية</button>
+            </div>
+
+            <!-- 5. الأمان والحماية -->
+            <div class="glass-card p-4 rounded-2xl space-y-3">
+                <h4 class="text-xs font-bold text-white flex items-center">
+                    <i class="fa-solid fa-shield-halved text-amber-400 mr-2"></i> إعدادات الأمان
+                </h4>
+                <div class="space-y-2">
+                    <button onclick="openChangePasswordModal()" class="w-full py-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5 transition-all">
+                        <span><i class="fa-solid fa-key text-slate-500 mr-2"></i> تغيير كلمة المرور</span>
+                        <i class="fa-solid fa-chevron-left text-[10px] text-slate-500"></i>
+                    </button>
+                    <div class="py-2.5 bg-slate-950 border border-slate-800 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5">
+                        <span><i class="fa-solid fa-mobile-screen-button text-slate-500 mr-2"></i> المصادقة الثنائية (2FA)</span>
+                        <input type="checkbox" id="toggle2FA" onchange="toggle2FASetting(this)" class="w-4 h-4 accent-amber-500">
+                    </div>
+                    <button onclick="openActiveSessionsModal()" class="w-full py-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5 transition-all">
+                        <span><i class="fa-solid fa-laptop-code text-slate-500 mr-2"></i> الأجهزة والجلسات النشطة</span>
+                        <i class="fa-solid fa-chevron-left text-[10px] text-slate-500"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 6. تفضيلات النظام والدعم -->
+            <div class="glass-card p-4 rounded-2xl space-y-3">
+                <h4 class="text-xs font-bold text-white flex items-center">
+                    <i class="fa-solid fa-sliders text-amber-400 mr-2"></i> إعدادات المنصة والدعم
+                </h4>
+                <div class="space-y-2">
+                    <div class="py-2.5 bg-slate-950 border border-slate-800 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5">
+                        <span><i class="fa-solid fa-volume-high text-slate-500 mr-2"></i> الأصوات والتنبيهات</span>
+                        <input type="checkbox" checked onchange="toggleSound(this)" class="w-4 h-4 accent-amber-500">
+                    </div>
+                    <div class="py-2.5 bg-slate-950 border border-slate-800 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5">
+                        <span><i class="fa-solid fa-language text-slate-500 mr-2"></i> لغة التطبيق</span>
+                        <select onchange="changeLanguage(this.value)" class="bg-slate-900 border border-slate-700 text-amber-400 text-[11px] rounded-lg px-2 py-1 outline-none">
+                            <option value="ar">العربية (AR)</option>
+                            <option value="en">English (EN)</option>
+                        </select>
+                    </div>
+                    <a href="https://t.me/TRADING_KURD3" target="_blank" class="w-full py-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold rounded-xl text-xs flex justify-between items-center px-3.5 transition-all block">
+                        <span><i class="fa-brands fa-telegram text-sky-400 mr-2"></i> الدعم الفني المباشر (Telegram)</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-500"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 7. الروابط القانونية وتجربة الحساب -->
+            <div class="text-center space-y-3 pt-2">
+                <div class="flex justify-center space-x-4 space-x-reverse text-[11px] text-slate-500">
+                    <button onclick="openTermsModal()" class="hover:text-amber-400 transition-all">شروط الاستخدام</button>
+                    <span>•</span>
+                    <button onclick="openPrivacyModal()" class="hover:text-amber-400 transition-all">سياسة الخصوصية</button>
+                </div>
+                <button onclick="logout()" class="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold rounded-2xl text-xs active:scale-95 transition-all">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> تسجيل الخروج من الحساب
+                </button>
+            </div>
+
         </div>
 
     </div>
@@ -452,6 +548,47 @@
                 </div>
                 <button type="submit" id="btnResetSubmit" class="w-full py-2.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs">تحديث كلمة المرور والدخول</button>
             </form>
+        </div>
+    </div>
+
+    <!-- نافذة تغيير كلمة المرور المباشرة من الحساب -->
+    <div id="changePasswordModal" class="hide fixed inset-0 glass-modal z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-sm p-5 rounded-3xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-white text-sm">تغيير كلمة المرور</h3>
+                <button onclick="closeChangePasswordModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="handleChangePasswordSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور الحالية</label>
+                    <input type="password" id="currentPasswordInput" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">كلمة المرور الجديدة</label>
+                    <input type="password" id="newPasswordInput" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
+                </div>
+                <button type="submit" class="w-full py-2.5 gold-gradient text-slate-950 font-bold rounded-xl text-xs">حفظ كلمة المرور الجديدة</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة الأجهزة والجلسات النشطة -->
+    <div id="activeSessionsModal" class="hide fixed inset-0 glass-modal z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-sm p-5 rounded-3xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-white text-sm">الجلسات والأجهزة النشطة</h3>
+                <button onclick="closeActiveSessionsModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between items-center">
+                    <div>
+                        <b class="text-white block">iPhone 15 Pro (هذا الجهاز)</b>
+                        <span class="text-[10px] text-slate-400">نشط الآن • دمشق، سوريا</span>
+                    </div>
+                    <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+                </div>
+            </div>
+            <button onclick="terminateOtherSessions()" class="w-full py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold rounded-xl text-xs">تسجيل الخروج من بقية الأجهزة</button>
         </div>
     </div>
 
