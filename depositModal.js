@@ -109,10 +109,16 @@ async function handleDepositSubmit(event) {
   statusMsg.innerText = 'جاري إنشاء طلب الإيداع...';
   statusMsg.style.color = '#333';
 
+  // جلب التوكن الخاص بالمستخدم المعرف أثناء تسجيل الدخول
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
   try {
     const response = await fetch('/api/deposit/create', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ amount: amount })
     });
 
@@ -124,7 +130,8 @@ async function handleDepositSubmit(event) {
       walletInput.value = data.walletAddress;
       walletContainer.style.display = 'block';
     } else {
-      statusMsg.innerText = data.message || 'حدث خطأ أثناء إنشاء الطلب.';
+      console.error('تفاصيل خطأ السيرفر:', data);
+      statusMsg.innerText = data.message || 'خطأ في عملية الإيداع';
       statusMsg.style.color = 'red';
       submitBtn.disabled = false;
     }
