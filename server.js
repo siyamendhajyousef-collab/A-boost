@@ -300,10 +300,11 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 `;
 
     const modelsToTry = [
-      'llama-3.3-70b-versatile',
-      'llama3-8b-8192',
-      'mixtral-8x7b-32768'
-    ];
+  'openai/gpt-oss-120b',
+  'qwen/qwen3.8-27b',
+  'qwen/qwen3.6-27b'
+];
+
 
     let replyText = null;
     let lastError = null;
