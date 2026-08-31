@@ -48,7 +48,16 @@ const modalHTML = `
     <button class="deposit-modal-close" onclick="closeDepositModal()">&times;</button>
     
     <h3 style="margin-top:0;">إيداع USDT (TRC20)</h3>
-    <p style="font-size:14px; color:#666;">أدخل المبلغ المطلوب للحصول على عنوان المحفظة</p>
+    <p style="font-size:14px; color:#666;">قم بتحويل المبلغ ثم أدخل تفاصيل التحويل</p>
+
+    <!-- عنوان محفظة المنصة الثابتة لاستقبال الإيداعات -->
+    <div class="deposit-wallet-box" style="margin-bottom: 15px;">
+      <p style="margin:0; font-weight:bold; font-size:13px;">عنوان محفظة الإيداع (TRC20):</p>
+      <div class="deposit-flex-row">
+        <input type="text" id="platformWalletAddress" value="ضع_عنوان_محفظة_المنصة_هنا" readonly />
+        <button type="button" class="deposit-btn-copy" onclick="copyPlatformWallet()">نسخ</button>
+      </div>
+    </div>
 
     <form id="depositForm" onsubmit="handleDepositSubmit(event)">
       <div class="deposit-input-group">
@@ -56,13 +65,9 @@ const modalHTML = `
         <input type="number" id="depositAmount" min="10" step="any" placeholder="أدخل المبلغ (مثال: 100)" required />
       </div>
 
-      <div id="walletAddressContainer" class="deposit-wallet-box" style="display: none;">
-        <p style="margin:0; font-weight:bold; font-size:13px;">قم بتحويل المبلغ إلى العنوان التالي:</p>
-        <div class="deposit-flex-row">
-          <input type="text" id="walletAddressInput" readonly />
-          <button type="button" class="deposit-btn-copy" onclick="copyWalletAddress()">نسخ</button>
-        </div>
-        <p style="font-size:11px; color:#d9534f; margin: 6px 0 0 0;">ملاحظة: التأكيد يتم تلقائياً عبر البلوكشين فور وصول التحويل.</p>
+      <div class="deposit-input-group">
+        <label for="depositTxHash">رقم المعاملة / Hash (اختياري):</label>
+        <input type="text" id="depositTxHash" placeholder="أدخل TxHash أو اتركه فارغاً" />
       </div>
 
       <div id="depositStatusMessage" style="margin-top:10px; font-size:14px;"></div>
@@ -83,7 +88,6 @@ function openDepositModal() {
 function closeDepositModal() {
   document.getElementById('depositModal').style.display = 'none';
   document.getElementById('depositForm').reset();
-  document.getElementById('walletAddressContainer').style.display = 'none';
   document.getElementById('depositStatusMessage').innerText = '';
   document.getElementById('submitDepositBtn').disabled = false;
 }
@@ -92,12 +96,12 @@ async function handleDepositSubmit(event) {
   event.preventDefault();
 
   const amountInput = document.getElementById('depositAmount');
+  const txHashInput = document.getElementById('depositTxHash');
   const statusMsg = document.getElementById('depositStatusMessage');
   const submitBtn = document.getElementById('submitDepositBtn');
-  const walletContainer = document.getElementById('walletAddressContainer');
-  const walletInput = document.getElementById('walletAddressInput');
 
   const amount = parseFloat(amountInput.value);
+  const txHash = txHashInput.value.trim();
 
   if (!amount || amount <= 0) {
     statusMsg.innerText = 'يرجى إدخال مبلغ صحيح.';
@@ -106,32 +110,43 @@ async function handleDepositSubmit(event) {
   }
 
   submitBtn.disabled = true;
-  statusMsg.innerText = 'جاري إنشاء طلب الإيداع...';
+  statusMsg.innerText = 'جاري إرسال طلب الإيداع...';
   statusMsg.style.color = '#333';
 
-  // جلب التوكن الخاص بالمستخدم المعرف أثناء تسجيل الدخول
+  // جلب التوكن الخاص بالمستخدم من التخزين المحلي
   const token = localStorage.getItem('token') || localStorage.getItem('authToken');
 
+  if (!token) {
+    statusMsg.innerText = 'يرجى تسجيل الدخول أولاً.';
+    statusMsg.style.color = 'red';
+    submitBtn.disabled = false;
+    return;
+  }
+
   try {
-    const response = await fetch('/api/deposit/create', {
+    // تم التعديل إلى المسار الصحيح الموجود في كود السيرفر
+    const response = await fetch('/api/wallet/deposit', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ amount: amount })
+      body: JSON.stringify({ 
+        amount: amount,
+        txHash: txHash || 'Manual Deposit Request'
+      })
     });
 
     const data = await response.json();
 
     if (response.ok && data.success) {
-      statusMsg.innerText = 'تم إنشاء الطلب بنجاح!';
+      statusMsg.innerText = data.message || 'تم إرسال طلب الإيداع وهو قيد المراجعة!';
       statusMsg.style.color = 'green';
-      walletInput.value = data.walletAddress;
-      walletContainer.style.display = 'block';
+      setTimeout(() => {
+        closeDepositModal();
+      }, 2500);
     } else {
-      console.error('تفاصيل خطأ السيرفر:', data);
-      statusMsg.innerText = data.message || 'خطأ في عملية الإيداع';
+      statusMsg.innerText = data.error || data.message || 'حدث خطأ أثناء إرسال الطلب.';
       statusMsg.style.color = 'red';
       submitBtn.disabled = false;
     }
@@ -143,8 +158,8 @@ async function handleDepositSubmit(event) {
   }
 }
 
-function copyWalletAddress() {
-  const walletInput = document.getElementById('walletAddressInput');
+function copyPlatformWallet() {
+  const walletInput = document.getElementById('platformWalletAddress');
   walletInput.select();
   navigator.clipboard.writeText(walletInput.value);
   alert('تم نسخ عنوان المحفظة بنجاح');
