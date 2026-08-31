@@ -5,6 +5,7 @@
 let currentUserTier = 'A1';
 let soundEnabled = true;
 let currentUserData = null; // الاحتفاظ ببيانات المستخدم محلياً لسهولة الوصول
+let hasPendingDeposit = false; // متغير لتتبع وجود طلب إيداع معلق
 
 const tiersData = [
     { code: 'A1', name: 'المستوى A1 المعتمد', price: 50, tasks: 33, dailyProfit: 2.50, monthlyProfit: 75.00, yearlyProfit: 912.50, badgeColor: 'from-amber-500/20 to-amber-700/20 border-amber-500/40 text-amber-400' },
@@ -492,6 +493,9 @@ async function loadUserProfile() {
             
             updateTierDisplay();
             renderTiersList();
+
+            // الفحص التلقائي لطلبات الإيداع المعلقة
+            await checkPendingDepositStatus();
         } else {
             logout();
         }
@@ -783,7 +787,50 @@ function switchTab(tabName) {
     }
 }
 
-function openDepositModal() { document.getElementById('depositModal').classList.remove('hide'); }
+// دالة فحص وجود طلب إيداع معلق
+async function checkPendingDepositStatus() {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    try {
+        const res = await fetch('/api/transactions/my-history', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const transactions = data.transactions || data.history || [];
+
+        // التحقق مما إذا كان هناك طلب إيداع بحالة معلقة
+        hasPendingDeposit = transactions.some(tx => 
+            tx.type === 'deposit' && (tx.status === 'pending' || tx.status === 'processing' || tx.status === 'قيد المعالجة')
+        );
+        return hasPendingDeposit;
+    } catch (err) {
+        return false;
+    }
+}
+
+async function openDepositModal() { 
+    document.getElementById('depositModal').classList.remove('hide');
+    const btn = document.getElementById('btnConfirmDeposit');
+    
+    // فحص الطلبات المعلقة عند فتح المودال
+    await checkPendingDepositStatus();
+
+    if (hasPendingDeposit) {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'لديك طلب إيداع سابق قيد المعالجة';
+            btn.className = "w-full py-3 bg-slate-800 text-slate-500 font-bold rounded-xl text-xs cursor-not-allowed";
+        }
+        showToast('⚠️ لديك طلب إيداع سابق قيد المعالجة، يرجى انتظار قبوله أولاً');
+    } else {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'تأكيد طلب الإيداع';
+            btn.className = "w-full py-3 gold-gradient text-slate-950 font-black rounded-xl text-xs shadow-lg active:scale-95 transition-all";
+        }
+    }
+}
+
 function closeDepositModal() { document.getElementById('depositModal').classList.add('hide'); }
 function openNotificationsModal() { document.getElementById('notificationsModal').classList.remove('hide'); }
 function closeNotificationsModal() { document.getElementById('notificationsModal').classList.add('hide'); }
@@ -791,11 +838,18 @@ function openWithdrawModal() { document.getElementById('withdrawModal').classLis
 function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hide'); }
 
 async function confirmDeposit() {
+    if (hasPendingDeposit) {
+        showToast('❌ لا يمكنك تقديم طلب إيداع جديد حتى يتم قبول أو رفض الطلب المعلق الحالي');
+        return;
+    }
+
     const token = localStorage.getItem('token');
     const amount = parseFloat(document.getElementById('depositAmount').value) || 50;
     const btn = document.getElementById('btnConfirmDeposit');
 
     btn.disabled = true;
+    btn.innerText = 'جاري الإرسال...';
+
     try {
         const res = await fetch('/api/wallet/deposit', {
             method: 'POST',
@@ -804,17 +858,20 @@ async function confirmDeposit() {
         });
         const data = await res.json();
         if(res.ok) {
-            showToast(`تم شحن محفظتك بـ ${amount}$ بنجاح`, 'win');
+            hasPendingDeposit = true; // قفل الإيداع فور إرسال الطلب
+            showToast(`تم تقديم طلب شحن ${amount}$ بنجاح وهو قيد المعالجة`, 'win');
             closeDepositModal();
             if (data.wallet) updateWalletData(data.wallet);
-            await loadUserProfile(); // إعادة مزامنة رصيد المستخدم والواجهة مباشرةً
+            await loadUserProfile();
         } else {
-            showToast(data.error || 'خطأ في عملية الإيداع');
+            showToast('❌ ' + (data.error || 'خطأ في عملية الإيداع'));
+            btn.disabled = false;
+            btn.innerText = 'تأكيد طلب الإيداع';
         }
     } catch(err) {
-        showToast('خطأ في الاتصال');
-    } finally {
+        showToast('❌ خطأ في الاتصال بالخادم');
         btn.disabled = false;
+        btn.innerText = 'تأكيد طلب الإيداع';
     }
 }
 
@@ -959,6 +1016,7 @@ function copyReferral() {
 function logout() {
     localStorage.removeItem('token');
     currentUserData = null;
+    hasPendingDeposit = false;
     document.getElementById('loadingView').classList.add('hide');
     document.getElementById('appView').classList.add('hide');
     document.getElementById('authView').classList.remove('hide');
