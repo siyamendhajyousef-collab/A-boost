@@ -1,5 +1,5 @@
 // 🚀 BOOST Platform Backend Server
-// تم تحديث الكود وتطبيق أفضل الممارسات الأمنية وإدارة المعاملات المعقدة.
+// تم تحديث الكود وتطبيق أفضل الممارسات الأمنية وإدارة المعاملات المعقدة وفصل الأرباح عن الإيداع.
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -140,7 +140,9 @@ const userSchema = new mongoose.Schema({
   walletAddress: { type: String, default: '', trim: true },
   isBanned: { type: Boolean, default: false },
   wallet: {
-    balance: { type: Number, default: 0, min: 0 },
+    balance: { type: Number, default: 0, min: 0 },         // الرصيد الإجمالي
+    depositBalance: { type: Number, default: 0, min: 0 },  // رصيد الإيداع (غير قابل للسحب)
+    profitBalance: { type: Number, default: 0, min: 0 },   // رصيد الأرباح (قابل للسحب)
     totalDeposits: { type: Number, default: 0, min: 0 },
     totalWithdrawn: { type: Number, default: 0, min: 0 }
   },
@@ -155,7 +157,7 @@ const User = mongoose.model('User', userSchema);
 
 const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['deposit', 'withdraw', 'reward', 'staking_reward', 'referral_commission'], required: true },
+  type: { type: String, enum: ['deposit', 'withdraw', 'reward', 'staking_reward', 'referral_commission', 'upgrade_deduction'], required: true },
   amount: { type: Number, required: true },
   walletAddress: { type: String, required: true, trim: true },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
@@ -300,11 +302,10 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
 `;
 
     const modelsToTry = [
-  'openai/gpt-oss-120b',
-  'qwen/qwen3.8-27b',
-  'qwen/qwen3.6-27b'
-];
-
+      'openai/gpt-oss-120b',
+      'qwen/qwen3.8-27b',
+      'qwen/qwen3.6-27b'
+    ];
 
     let replyText = null;
     let lastError = null;
@@ -342,12 +343,13 @@ app.post('/api/ai/chat', verifyToken, async (req, res) => {
   }
 });
 
-// 🚀 مسار ترقية المستوى
+// 🚀 مسار ترقية المستوى (تحديث الخصم الآمن من الرصيد المُودع ثم الأرباح)
 app.post('/api/user/upgrade', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const { targetTier } = req.body;
+    
     const user = await User.findById(req.user.id).session(session);
     if (!user) {
       await session.abortTransaction();
@@ -376,21 +378,47 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'المستوى المطلوب غير موجود' });
     }
 
+    // 1. التحقق من كفاية الرصيد الإجمالي
     if (user.wallet.balance < targetLevelData.price) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({ error: `رصيد المحفظة غير كافٍ للترقية إلى ${targetLevelData.name}. المبلغ المطلوب: ${targetLevelData.price}$` });
+      return res.status(400).json({ 
+        error: `رصيد المحفظة غير كافٍ للترقية إلى ${targetLevelData.name}. المبلغ المطلوب: ${targetLevelData.price}$، بينما رصيدك المتاح: ${user.wallet.balance}$` 
+      });
     }
 
-    user.wallet.balance -= targetLevelData.price;
+    // 2. خصم سعر الترقية: يُخصم أولوياً من رصيد الإيداع ثم من رصيد الأرباح
+    let remainingPrice = targetLevelData.price;
+    if (user.wallet.depositBalance >= remainingPrice) {
+      user.wallet.depositBalance -= remainingPrice;
+    } else {
+      remainingPrice -= user.wallet.depositBalance;
+      user.wallet.depositBalance = 0;
+      user.wallet.profitBalance -= remainingPrice;
+    }
+
+    // 3. تحديث الرصيد الإجمالي ومستوى الحساب
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     user.tierCode = targetLevelData.code;
     await user.save({ session });
 
+    // 4. تسجيل عملية الخصم في سجل المعاملات المالية
+    const upgradeTx = new Transaction({
+      userId: user._id,
+      type: 'upgrade_deduction',
+      amount: targetLevelData.price,
+      walletAddress: `Upgrade to ${targetLevelData.name} (${targetLevelData.code})`,
+      status: 'approved'
+    });
+    await upgradeTx.save({ session });
+
+    // 5. منح العمولة للشخص الموصي (توزيع عمولة الإحالة)
     if (user.referredBy) {
       const referrer = await User.findOne({ referralCode: user.referredBy }).session(session);
       if (referrer) {
         const commissionAmount = parseFloat((targetLevelData.price * 0.10).toFixed(2));
-        referrer.wallet.balance += commissionAmount;
+        referrer.wallet.profitBalance += commissionAmount;
+        referrer.wallet.balance = referrer.wallet.depositBalance + referrer.wallet.profitBalance;
         await referrer.save({ session });
 
         const commissionTx = new Transaction({
@@ -409,14 +437,15 @@ app.post('/api/user/upgrade', verifyToken, async (req, res) => {
 
     res.status(200).json({ 
       success: true, 
-      message: 'تمت الترقية بنجاح', 
+      message: `تمت الترقية بنجاح إلى ${targetLevelData.name} وتم خصم ${targetLevelData.price}$ من رصيدك.`, 
       tierCode: user.tierCode,
       wallet: user.wallet
     });
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
-    res.status(500).json({ error: 'خطأ تقني أثناء الترقية' });
+    console.error('Error during upgrade process:', err);
+    res.status(500).json({ error: 'خطأ تقني أثناء معالجة الترقية' });
   }
 });
 
@@ -550,15 +579,22 @@ app.post('/api/staking/create', verifyToken, async (req, res) => {
 
     const expectedProfit = parseFloat((stakeAmount * profitRate).toFixed(2));
 
-    const user = await User.findOneAndUpdate(
-      { _id: req.user.id, 'wallet.balance': { $gte: stakeAmount } },
-      { $inc: { 'wallet.balance': -stakeAmount } },
-      { new: true }
-    );
-
-    if (!user) {
+    const user = await User.findById(req.user.id);
+    if (!user || user.wallet.balance < stakeAmount) {
       return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ لإنشاء حزمة التخزين' });
     }
+
+    let remainingStake = stakeAmount;
+    if (user.wallet.depositBalance >= remainingStake) {
+      user.wallet.depositBalance -= remainingStake;
+    } else {
+      remainingStake -= user.wallet.depositBalance;
+      user.wallet.depositBalance = 0;
+      user.wallet.profitBalance -= remainingStake;
+    }
+
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
+    await user.save();
 
     const endDate = new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
 
@@ -604,24 +640,22 @@ app.post('/api/staking/claim', verifyToken, async (req, res) => {
     staking.status = 'claimed';
     await staking.save();
 
-    const totalReturn = staking.amount + staking.expectedProfit;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { $inc: { 'wallet.balance': totalReturn } },
-      { new: true }
-    );
+    const user = await User.findById(req.user.id);
+    user.wallet.depositBalance += staking.amount;
+    user.wallet.profitBalance += staking.expectedProfit;
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
+    await user.save();
 
     const tx = new Transaction({
       userId: req.user.id,
       type: 'staking_reward',
-      amount: totalReturn,
+      amount: staking.amount + staking.expectedProfit,
       walletAddress: 'Staking Pool Reward',
       status: 'approved'
     });
     await tx.save();
 
-    res.status(200).json({ success: true, message: 'تم استلام رأس المال والأرباح بنجاح', wallet: updatedUser.wallet });
+    res.status(200).json({ success: true, message: 'تم استلام رأس المال والأرباح بنجاح', wallet: user.wallet });
   } catch (err) {
     res.status(500).json({ error: 'حدث خطأ في معالجة الطلب' });
   }
@@ -688,7 +722,7 @@ app.post('/api/auth/register', async (req, res) => {
       password: hashedPassword, 
       referralCode: newReferralCode,
       referredBy: validReferralCode, 
-      wallet: { balance: 0, totalDeposits: 0, totalWithdrawn: 0 }
+      wallet: { balance: 0, depositBalance: 0, profitBalance: 0, totalDeposits: 0, totalWithdrawn: 0 }
     });
     
     await newUser.save();
@@ -720,6 +754,13 @@ app.post('/api/auth/login', async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ error: 'بيانات الدخول غير صحيحة' });
     }
+
+    // مزامنة صحة الحقول المالية القديمة والجديدة
+    if (user.wallet.depositBalance === undefined) user.wallet.depositBalance = 0;
+    if (user.wallet.profitBalance === undefined) user.wallet.profitBalance = user.wallet.balance || 0;
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
+    await user.save();
+
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     
     const safeUser = {
@@ -876,6 +917,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
       {
         $inc: {
           assetWallet: commission,
+          'wallet.profitBalance': commission,
           'wallet.balance': commission,
           todayCompletedTasks: 1
         }
@@ -905,7 +947,7 @@ app.post('/api/tasks/complete', verifyToken, async (req, res) => {
   }
 });
 
-// 💳 الإيداع (تم تحديث المسار لمنع تقديم طلب جديد عند وجود طلب معلق)
+// 💳 الإيداع
 app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
   try {
     const { amount, txHash, receipt } = req.body;
@@ -914,7 +956,6 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'مبلغ الإيداع غير صالح' });
     }
 
-    // 1. التحقق من وجود طلب إيداع معلق مسبقاً لهذا المستخدم
     const pendingDeposit = await Transaction.findOne({
       userId: req.user.id,
       type: 'deposit',
@@ -930,7 +971,6 @@ app.post('/api/wallet/deposit', verifyToken, async (req, res) => {
 
     const safeTxHash = receipt || ((txHash && typeof txHash === 'string') ? txHash.trim() : 'Manual Deposit Request');
 
-    // 2. إنشاء طلب الإيداع الجديد في حال عدم وجود طلبات معلقة
     const depositTransaction = new Transaction({
       userId: req.user.id,
       type: 'deposit',
@@ -967,7 +1007,7 @@ app.get('/api/transactions/my-history', verifyToken, async (req, res) => {
   }
 });
 
-// 🎡 عجلة الحظ (مع حماية المعاملات ACID)
+// 🎡 عجلة الحظ
 app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -978,7 +1018,12 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      { $inc: { 'wallet.balance': rewardAmount } },
+      { 
+        $inc: { 
+          'wallet.profitBalance': rewardAmount,
+          'wallet.balance': rewardAmount 
+        } 
+      },
       { new: true, session }
     );
 
@@ -1008,7 +1053,7 @@ app.post('/api/spin/wheel', verifyToken, async (req, res) => {
   }
 });
 
-// 🎁 الصندوق الغامض (مع حماية المعاملات ACID)
+// 🎁 الصندوق الغامض
 app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -1019,7 +1064,12 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      { $inc: { 'wallet.balance': rewardAmount } },
+      { 
+        $inc: { 
+          'wallet.profitBalance': rewardAmount,
+          'wallet.balance': rewardAmount 
+        } 
+      },
       { new: true, session }
     );
 
@@ -1049,7 +1099,7 @@ app.post('/api/spin/mystery-box', verifyToken, async (req, res) => {
   }
 });
 
-// 💸 طلب السحب
+// 💸 طلب السحب (معدّل للتحقق والخصم من رصيد الأرباح فقط)
 app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -1091,13 +1141,16 @@ app.post('/api/wallet/withdraw', verifyToken, async (req, res) => {
       return res.status(400).json({ error: `الحد الأقصى للسحب الأسبوعي لمستواك هو ${maxLimit}$` });
     }
 
-    if (user.wallet.balance < withdrawNum) {
+    // ⭐ التحقق الحازم: الخصم التام والتحقق يكون من رصيد الأرباح فقط
+    if (user.wallet.profitBalance < withdrawNum) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({ error: 'رصيد المحفظة غير كافٍ' });
+      return res.status(400).json({ error: `رصيد الأرباح القابل للسحب غير كافٍ. المتاح للسحب لديك هو: ${user.wallet.profitBalance}$ (رصيد الإيداع لا يمكن السحب منه).` });
     }
 
-    user.wallet.balance -= withdrawNum;
+    // الخصم حصرياً من رصيد الأرباح
+    user.wallet.profitBalance -= withdrawNum;
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     user.wallet.totalWithdrawn += withdrawNum;
     user.twoFactorCode = null;
     user.twoFactorExpire = null;
@@ -1305,11 +1358,14 @@ app.post('/api/admin/users/toggle-ban', verifyAdmin, async (req, res) => {
 // ✏️ تعديل بيانات مستخدم من الإدارة
 app.post('/api/admin/users/update', verifyAdmin, async (req, res) => {
   try {
-    const { userId, balance, tierCode, walletAddress } = req.body;
+    const { userId, depositBalance, profitBalance, tierCode, walletAddress } = req.body;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    if (balance !== undefined) user.wallet.balance = Number(balance);
+    if (depositBalance !== undefined) user.wallet.depositBalance = Number(depositBalance);
+    if (profitBalance !== undefined) user.wallet.profitBalance = Number(profitBalance);
+
+    user.wallet.balance = user.wallet.depositBalance + user.wallet.profitBalance;
     if (tierCode) user.tierCode = tierCode;
     if (walletAddress !== undefined) user.walletAddress = String(walletAddress).trim();
 
@@ -1362,8 +1418,13 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     if (action === 'approve') {
       tx.status = 'approved';
       if (tx.type === 'deposit') {
+        // تحويل مبلغ الإيداع تلقائياً لرصيد الإيداع حصراً
         await User.findByIdAndUpdate(user._id, {
-          $inc: { 'wallet.balance': tx.amount, 'wallet.totalDeposits': tx.amount }
+          $inc: { 
+            'wallet.depositBalance': tx.amount,
+            'wallet.balance': tx.amount, 
+            'wallet.totalDeposits': tx.amount 
+          }
         }, { session });
       }
 
@@ -1429,8 +1490,13 @@ app.post('/api/admin/withdrawals/action', verifyAdmin, async (req, res) => {
     } else if (action === 'reject') {
       tx.status = 'rejected';
       if (tx.type === 'withdraw') {
+        // إرجاع المبلغ لـ profitBalance في حال الرفض
         await User.findByIdAndUpdate(user._id, {
-          $inc: { 'wallet.balance': tx.amount, 'wallet.totalWithdrawn': -tx.amount }
+          $inc: { 
+            'wallet.profitBalance': tx.amount, 
+            'wallet.balance': tx.amount,
+            'wallet.totalWithdrawn': -tx.amount 
+          }
         }, { session });
       }
     } else {
@@ -1516,7 +1582,7 @@ mongoose.connect(MONGO_URI)
     });
   })
   .catch(err => {
-    console.error('❌ خطأ حرج في الاتصال بقاعدة البيانات MongoDB:', err);
+    console.error('❌ خطأ حرج في الاتصال بقاعدة بيانات MongoDB:', err);
     process.exit(1);
   });
 
