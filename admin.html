@@ -329,9 +329,7 @@
             document.getElementById(`admin-${tab}`).classList.remove('hide');
             const activeBtn = document.getElementById(`btn-tab-${tab}`);
             if (activeBtn) activeBtn.className = "w-full flex items-center space-x-3 space-x-reverse px-4 py-3 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 transition-all";
-
             if (window.innerWidth < 768) document.getElementById('sidebar').classList.add('hidden');
-
             if(tab === 'overview') fetchAdminOverview();
             if(tab === 'users') fetchUsersList();
             if(tab === 'withdrawals') fetchTransactionsList();
@@ -342,14 +340,9 @@
         async function fetchAdminOverview() {
             const token = localStorage.getItem('token');
             if (!token) return adminLogout();
-
             try {
-                const res = await fetch('/api/admin/overview', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
+                const res = await fetch('/api/admin/overview', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401 || res.status === 403) return adminLogout();
-
                 const data = await res.json();
                 if(res.ok && data.success) {
                     const stats = data.stats || {};
@@ -364,17 +357,15 @@
         async function fetchUsersList(page = 1) {
             const token = localStorage.getItem('token');
             if (!token) return adminLogout();
-
+            const search = document.getElementById('txtSearchUser')?.value || '';
             try {
-                const res = await fetch(`/api/admin/users?page=${page}&limit=10`, {
+                const res = await fetch(`/api/admin/users?page=${page}&limit=10&search=${encodeURIComponent(search)}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (res.status === 401 || res.status === 403) return adminLogout();
-
                 const data = await res.json();
                 if(res.ok) {
-                    const users = Array.isArray(data) ? data : data.users || [];
+                    const users = data.users || [];
                     allUsersData = users;
                     usersCurrentPage = data.page || 1;
                     usersTotalPages = data.totalPages || 1;
@@ -423,15 +414,12 @@
         }
 
         function filterUsersTable() {
-            const term = document.getElementById('txtSearchUser').value.toLowerCase();
-            const filtered = allUsersData.filter(u => u.email && u.email.toLowerCase().includes(term));
-            renderUsersTable(filtered);
+            fetchUsersList(1);
         }
 
         async function toggleUserBan(userId, isBanned) {
             const actionText = isBanned ? 'حظر' : 'إلغاء حظر';
             if (!confirm(`هل أنت تأكد من رغبتك في ${actionText} هذا المستخدم؟`)) return;
-
             const token = localStorage.getItem('token');
             try {
                 const res = await fetch('/api/admin/users/toggle-ban', {
@@ -449,20 +437,17 @@
             } catch (e) { showToast('خطأ في الاتصال بالخادم'); }
         }
 
+        // ===== طلبات السحب والإيداع =====
         async function fetchTransactionsList(page = 1) {
             const token = localStorage.getItem('token');
             if (!token) return adminLogout();
-
             const status = document.getElementById('filterTxStatus').value;
             const type = document.getElementById('filterTxType').value;
-
             try {
                 const res = await fetch(`/api/admin/withdrawals?status=${status}&type=${type}&page=${page}&limit=10`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (res.status === 401 || res.status === 403) return adminLogout();
-
                 const data = await res.json();
                 if (res.ok && data.success) {
                     txCurrentPage = data.page || 1;
@@ -471,11 +456,12 @@
                     document.getElementById('txTotalPages').innerText = txTotalPages;
 
                     const tbody = document.getElementById('tblTransactionsBody');
-                    if (!data.withdrawals || data.withdrawals.length === 0) {
+                    const withdrawals = data.withdrawals || [];
+                    if (!withdrawals || withdrawals.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد طلبات مطابقة</td></tr>`;
                         return;
                     }
-                    tbody.innerHTML = data.withdrawals.map(tx => {
+                    tbody.innerHTML = withdrawals.map(tx => {
                         const statusBadge = tx.status === 'pending' 
                             ? `<span class="px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-bold text-[10px]">معلق</span>`
                             : tx.status === 'approved'
@@ -492,7 +478,7 @@
                                 <td class="p-4 font-bold text-white">${tx.userId ? tx.userId.email : 'غير معروف'}</td>
                                 <td class="p-4 font-semibold text-slate-300">${tx.type === 'withdraw' ? 'سحب رصيد' : 'شحن/إيداع'}</td>
                                 <td class="p-4 text-amber-400 font-mono font-bold">${Number(tx.amount || 0).toFixed(2)} $</td>
-                                <td class="p-4 text-slate-300 font-mono text-[11px] select-all">${tx.walletAddress || tx.hash || 'غير محدد'}</td>
+                                <td class="p-4 text-slate-300 font-mono text-[11px] select-all">${tx.walletAddress || 'غير محدد'}</td>
                                 <td class="p-4">${statusBadge}</td>
                                 <td class="p-4 space-x-1 space-x-reverse">${actionButtons}</td>
                             </tr>
@@ -510,7 +496,6 @@
         async function handleWithdrawalAction(transactionId, action) {
             const actionText = action === 'approve' ? 'الموافقة على' : 'رفض';
             if (!confirm(`هل أنت تأكد من رغبتك في ${actionText} هذا الطلب؟`)) return;
-
             const token = localStorage.getItem('token');
             try {
                 const res = await fetch('/api/admin/withdrawals/action', {
@@ -529,62 +514,7 @@
             } catch (e) { showToast('خطأ في الاتصال بالسيرفر'); }
         }
 
-        function openEditUser(id, tier, balance) {
-            document.getElementById('editUserId').value = id;
-            document.getElementById('editUserTier').value = tier;
-            document.getElementById('editUserBalance').value = balance;
-            document.getElementById('editUserPass').value = '';
-            document.getElementById('editUserModal').classList.remove('hide');
-        }
-
-        function closeEditUserModal() {
-            document.getElementById('editUserModal').classList.add('hide');
-        }
-
-        async function submitEditUser() {
-            const token = localStorage.getItem('token');
-            const userId = document.getElementById('editUserId').value;
-            const tierCode = document.getElementById('editUserTier').value;
-            const balance = parseFloat(document.getElementById('editUserBalance').value);
-            const password = document.getElementById('editUserPass').value;
-
-            try {
-                const res = await fetch('/api/admin/users/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ userId, tierCode, balance, password })
-                });
-                if(res.ok) {
-                    showToast('تم تحديث بيانات المستخدم بنجاح');
-                    closeEditUserModal();
-                    fetchUsersList(usersCurrentPage);
-                    fetchAdminOverview();
-                } else {
-                    showToast('حدث خطأ أثناء التحديث');
-                }
-            } catch(e) { showToast('خطأ في الاتصال'); }
-        }
-
-        async function resetFundPassword() {
-            const userId = document.getElementById('editUserId').value;
-            if(!confirm("تعيين رمز السحب إلى 0000؟")) return;
-            const token = localStorage.getItem('token');
-            try {
-                const res = await fetch('/api/admin/users/reset-fund-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ userId })
-                });
-                if(res.ok) showToast('تمت إعادة ضبط رمز السحب لـ 0000 بنجاح');
-            } catch(e) { showToast('خطأ بالاتصال'); }
-        }
-
-        function viewUserReferrals() {
-            const userId = document.getElementById('editUserId').value;
-            alert("طلب عرض شجرة الإحالات للمستخدم: " + userId);
-        }
-
-        // --- إدارة مستويات VIP المربوطة بالسيرفر بشكل مكتمل ونظامي ---
+        // ===== إدارة المستويات VIP =====
         async function fetchVipPlans() {
             const container = document.getElementById('plansContainer');
             const token = localStorage.getItem('token');
@@ -612,7 +542,7 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">عدد المهام اليومية</label>
-                                <input type="number" id="tasksCount-${plan.code}" value="${plan.tasksCount || 1}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                                <input type="number" id="tasksCount-${plan.code}" value="${plan.tasks || 1}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] text-slate-400 mb-1">نسبة العمولة (%)</label>
@@ -670,8 +600,8 @@
                         code: code,
                         name: name,
                         price: price,
+                        tasks: tasksCount,
                         dailyProfit: dailyProfit,
-                        tasksCount: tasksCount,
                         commissionRate: commissionRate,
                         durationDays: durationDays
                     })
@@ -689,6 +619,7 @@
             }
         }
 
+        // ===== إعدادات الألعاب =====
         async function fetchGameSettings() {
             const token = localStorage.getItem('token');
             try {
@@ -722,6 +653,7 @@
             } catch(e) { showToast('خطأ بالاتصال'); }
         }
 
+        // ===== البث والإشعارات =====
         async function sendBroadcastNotification() {
             const title = document.getElementById('txtBroadcastTitle').value;
             const body = document.getElementById('txtBroadcastBody').value;
@@ -743,17 +675,70 @@
             } catch(e) { showToast('خطأ بالاتصال'); }
         }
 
+        // ===== دوال المستخدم =====
+        function openEditUser(id, tier, balance) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editUserTier').value = tier;
+            document.getElementById('editUserBalance').value = balance;
+            document.getElementById('editUserPass').value = '';
+            document.getElementById('editUserModal').classList.remove('hide');
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').classList.add('hide');
+        }
+
+        async function submitEditUser() {
+            const token = localStorage.getItem('token');
+            const userId = document.getElementById('editUserId').value;
+            const tierCode = document.getElementById('editUserTier').value;
+            const balance = parseFloat(document.getElementById('editUserBalance').value);
+            const password = document.getElementById('editUserPass').value;
+
+            try {
+                const res = await fetch('/api/admin/users/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId, tierCode, depositBalance: balance, profitBalance: 0, password })
+                });
+                if(res.ok) {
+                    showToast('تم تحديث بيانات المستخدم بنجاح');
+                    closeEditUserModal();
+                    fetchUsersList(usersCurrentPage);
+                    fetchAdminOverview();
+                } else {
+                    showToast('حدث خطأ أثناء التحديث');
+                }
+            } catch(e) { showToast('خطأ في الاتصال'); }
+        }
+
+        async function resetFundPassword() {
+            const userId = document.getElementById('editUserId').value;
+            if(!confirm("تعيين رمز السحب إلى 0000؟")) return;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch('/api/admin/users/reset-fund-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId })
+                });
+                if(res.ok) showToast('تمت إعادة ضبط رمز السحب لـ 0000 بنجاح');
+            } catch(e) { showToast('خطأ بالاتصال'); }
+        }
+
+        function viewUserReferrals() {
+            const userId = document.getElementById('editUserId').value;
+            alert("طلب عرض شجرة الإحالات للمستخدم: " + userId);
+        }
+
         function adminLogout() {
             localStorage.removeItem('token');
             window.location.href = '/';
         }
 
         window.onload = () => {
-            // التحقق السريع من وجود التوكن محلياً قبل تشغيل الدوال
             const token = localStorage.getItem('token');
-            if (!token) {
-                return adminLogout();
-            }
+            if (!token) return adminLogout();
             fetchAdminOverview();
             fetchUsersList();
             fetchTransactionsList();
