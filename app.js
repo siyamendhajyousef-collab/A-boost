@@ -114,7 +114,8 @@ async function upgradeToSpecificTier(targetTier) {
             updateTierDisplay();
             renderTiersList();
             showToast(`مبروك! تمت الترقية بنجاح إلى المستوى ${currentUserTier}`, 'upgrade');
-            loadUserProfile();
+            if (data.wallet) updateWalletData(data.wallet);
+            await loadUserProfile();
         } else {
             showToast('❌ ' + (data.error || 'فشلت عملية الترقية'));
         }
@@ -356,21 +357,39 @@ async function handleRegister(e) {
 /* --- 4. محفظة المستخدم والملف الشخصي تحديث وتطبيق --- */
 function updateWalletData(wallet) {
     if(!wallet) return;
-    const balance = Number(wallet.balance || 0).toFixed(2);
-    const deposits = Number(wallet.totalDeposits || 0).toFixed(2);
-    const withdrawn = Number(wallet.totalWithdrawn || 0).toFixed(2);
 
+    // دعم إمكانية إرسال كائن Wallet أو قيم مباشرة
+    const balanceVal = wallet.balance !== undefined ? wallet.balance : wallet;
+    const depositsVal = wallet.totalDeposits !== undefined ? wallet.totalDeposits : (currentUserData?.wallet?.totalDeposits || 0);
+    const withdrawnVal = wallet.totalWithdrawn !== undefined ? wallet.totalWithdrawn : (currentUserData?.wallet?.totalWithdrawn || 0);
+
+    const balance = Number(balanceVal || 0).toFixed(2);
+    const deposits = Number(depositsVal || 0).toFixed(2);
+    const withdrawn = Number(withdrawnVal || 0).toFixed(2);
+
+    // تحديث كائن البيانات المحفوط بالذاكرة
+    if (currentUserData) {
+        if (!currentUserData.wallet) currentUserData.wallet = {};
+        currentUserData.wallet.balance = parseFloat(balance);
+        currentUserData.wallet.totalDeposits = parseFloat(deposits);
+        currentUserData.wallet.totalWithdrawn = parseFloat(withdrawn);
+        currentUserData.totalEarned = parseFloat(balance);
+        currentUserData.totalWithdrawn = parseFloat(withdrawn);
+    }
+
+    // عناصر المحفظة بالواجهة الرئيسية
     const lblBalance = document.getElementById('lblWalletBalance');
     const lblDeposits = document.getElementById('lblTotalDeposits');
     const lblWithdrawn = document.getElementById('lblTotalWithdrawn');
-    const lblProfileEarned = document.getElementById('lblProfileTotalEarnings');
-    const lblProfileWithdrawn = document.getElementById('lblProfileTotalWithdrawn');
 
     if (lblBalance) lblBalance.innerText = balance;
     if (lblDeposits) lblDeposits.innerText = deposits + ' $';
     if (lblWithdrawn) lblWithdrawn.innerText = withdrawn + ' $';
 
-    // تحديث مربعات الملف الشخصي المحددة
+    // عناصر الواجهة في الملف الشخصي (Profile)
+    const lblProfileEarned = document.getElementById('lblProfileTotalEarnings');
+    const lblProfileWithdrawn = document.getElementById('lblProfileTotalWithdrawn');
+
     if (lblProfileEarned) lblProfileEarned.innerText = `$${balance}`;
     if (lblProfileWithdrawn) lblProfileWithdrawn.innerText = `$${withdrawn}`;
 }
@@ -389,8 +408,8 @@ function updateProfileUI() {
     if (refInputEl) refInputEl.value = dynamicRefLink;
 
     // المبالغ
-    const totalEarned = (currentUserData.wallet && currentUserData.wallet.balance) ? currentUserData.wallet.balance : (currentUserData.totalEarned || 0);
-    const totalWithdrawn = (currentUserData.wallet && currentUserData.wallet.totalWithdrawn) ? currentUserData.wallet.totalWithdrawn : (currentUserData.totalWithdrawn || 0);
+    const totalEarned = (currentUserData.wallet && currentUserData.wallet.balance !== undefined) ? currentUserData.wallet.balance : (currentUserData.totalEarned || 0);
+    const totalWithdrawn = (currentUserData.wallet && currentUserData.wallet.totalWithdrawn !== undefined) ? currentUserData.wallet.totalWithdrawn : (currentUserData.totalWithdrawn || 0);
 
     const totalEarnedEl = document.getElementById('lblProfileTotalEarnings');
     const totalWithdrawnEl = document.getElementById('lblProfileTotalWithdrawn');
@@ -563,8 +582,8 @@ async function completeTask() {
         const data = await res.json();
         if(res.ok) {
             showToast('تم إنجاز المهمة وإضافة الأرباح لمحفظتك!', 'win');
-            updateWalletData(data.wallet);
-            loadUserProfile();
+            if (data.wallet) updateWalletData(data.wallet);
+            await loadUserProfile();
         } else {
             showToast(data.error || 'لا يمكن إنجاز المهمة');
         }
@@ -590,9 +609,10 @@ async function triggerLuckySpin() {
         const data = await res.json();
 
         if (res.ok && data.success) {
-            setTimeout(() => {
+            setTimeout(async () => {
                 showToast(`مبروك! ربحت ${data.reward}$ أضيفت لمحفظتك مباشرة`, 'win');
-                updateWalletData(data.wallet);
+                if (data.wallet) updateWalletData(data.wallet);
+                await loadUserProfile();
             }, 1000);
         } else {
             showToast('❌ ' + (data.error || 'حدث خطأ عند تدوير العجلة'));
@@ -613,7 +633,8 @@ async function openMysteryBox() {
 
         if (res.ok && data.success) {
             showToast(`🎁 مبروك! فتحت الصندوق واكتشفت مكافأة ${data.reward}$ أضيفت لمحفظتك!`, 'win');
-            updateWalletData(data.wallet);
+            if (data.wallet) updateWalletData(data.wallet);
+            await loadUserProfile();
         } else {
             showToast('❌ ' + (data.error || 'حدث خطأ عند فتح الصندوق'));
         }
@@ -782,10 +803,11 @@ async function confirmDeposit() {
             body: JSON.stringify({ amount })
         });
         const data = await res.json();
-        if(res.ok && data.wallet) {
+        if(res.ok) {
             showToast(`تم شحن محفظتك بـ ${amount}$ بنجاح`, 'win');
             closeDepositModal();
-            updateWalletData(data.wallet);
+            if (data.wallet) updateWalletData(data.wallet);
+            await loadUserProfile(); // إعادة مزامنة رصيد المستخدم والواجهة مباشرةً
         } else {
             showToast(data.error || 'خطأ في عملية الإيداع');
         }
@@ -839,10 +861,11 @@ async function submitWithdraw() {
             body: JSON.stringify({ amount, walletAddress, twoFactorCode })
         });
         const data = await res.json();
-        if(res.ok && data.wallet) {
+        if(res.ok) {
             showToast('تم تقديم طلب السحب وخصم المبلغ من محفظتك بنجاح');
             closeWithdrawModal();
-            updateWalletData(data.wallet);
+            if (data.wallet) updateWalletData(data.wallet);
+            await loadUserProfile(); // مزامنة وتحديث قيم الرصيد في الأماكن كافة فور نجاح الطلب
         } else {
             showToast(data.error || 'رصيد المحفظة لا يكفي أو رمز 2FA غير صحيح');
         }
